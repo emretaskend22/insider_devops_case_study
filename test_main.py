@@ -13,4 +13,3 @@ def test_healthz_endpoint():
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
 
-test_ping_endpoint()
