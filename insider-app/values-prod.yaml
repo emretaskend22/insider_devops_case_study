@@ -1,0 +1,14 @@
+# Canlı (Production) ortamı konfigürasyonu
+environment: "production"
+
+# 2.2 High Availability: Prod ortamında 3 pod çalıştırarak kesintisiz hizmet sağlıyoruz!
+replicaCount: 3
+
+# 2.3 Resources: Ani trafik yüklerini göğüslemek için kaynak sınırlarını dikeyde 2 katına çıkardık
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "250m"
+    memory: "256Mi"

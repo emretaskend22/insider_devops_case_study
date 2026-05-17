@@ -1,0 +1,14 @@
+# Geliştirme (Test) ortamı konfigürasyonu
+environment: "development"
+
+# Maliyet ve kaynak tasarrufu için test ortamında tek pod 
+replicaCount: 1
+
+# 2.3 Resources: Test ortamı için hafif kaynak sınırları
+resources:
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
