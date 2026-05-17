@@ -4,6 +4,12 @@ environment: "production"
 # 2.2 High Availability: Prod ortamında 3 pod çalıştırarak kesintisiz hizmet sağlıyoruz!
 replicaCount: 3
 
+# 🚀 Canlı ortam imaj politikası 
+image:
+  repository: emretaskend/insider-app 
+  tag: latest # CI/CD komutu bunu dinamik olarak değiştirecek (Örn: v1.0.0 veya commit_sha)
+  pullPolicy: Always
+
 # 2.3 Resources: Ani trafik yüklerini göğüslemek için kaynak sınırlarını dikeyde 2 katına çıkardık
 resources:
   limits:

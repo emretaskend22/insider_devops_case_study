@@ -4,6 +4,12 @@ environment: "development"
 # Maliyet ve kaynak tasarrufu için test ortamında tek pod 
 replicaCount: 1
 
+# 🛠️ Lokal test mimarisi 
+image:
+  repository: insider-app
+  tag: local
+  pullPolicy: Never
+
 # 2.3 Resources: Test ortamı için hafif kaynak sınırları
 resources:
   limits:

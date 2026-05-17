@@ -5,10 +5,9 @@
 replicaCount: 1
 
 image:
-  repository: emretaskend/insider-python-app
+  repository: insider-app 
   pullPolicy: IfNotPresent
-  # Tag'i boş bırakıyoruz çünkü deploy ederken dinamik vereceğiz (2.4 Rollout/Rollback maddesi için)
-  tag: ""
+  tag: "" 
 
 appConfig:
   port: 8080
