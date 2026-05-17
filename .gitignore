@@ -11,3 +11,11 @@ venv/
 .venv/
 env/
 ENV/
+
+# Terraform local states and vars
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+*.pem
