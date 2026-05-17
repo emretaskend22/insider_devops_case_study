@@ -12,3 +12,8 @@ variable "my_ip" {
   type        = string
   description = "My local public IP address for secure access"
 }
+
+variable "key_name" {
+  type        = string
+  description = "The name of the AWS SSH key pair to access the EC2 instance"
+}
