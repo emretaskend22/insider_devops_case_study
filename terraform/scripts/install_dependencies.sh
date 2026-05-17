@@ -33,4 +33,7 @@ chmod 700 get_helm.sh
 ./get_helm.sh
 rm get_helm.sh # Geçici kurulum dosyasını temizliyoruz
 
+echo "=== 6.Configuring kubectl alias for Ubuntu user... ==="
+echo "alias kubectl='minikube kubectl --'" >> /home/ubuntu/.bashrc
+
 echo "=== Setup Completed Successfully! ==="
