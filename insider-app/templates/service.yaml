@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "insider-app.fullname" . }}
+  labels:
+    {{- include "insider-app.labels" . | nindent 4 }}
+spec:
+  # values.yaml'daki service.type değerini okur (Varsayılan olarak ClusterIP)
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  # İsteklerin hangi pod'lara yönlendirileceğini seçer (Bizim FastAPI pod'ları)
+  selector:
+    {{- include "insider-app.selectorLabels" . | nindent 4 }}
