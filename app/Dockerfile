@@ -7,7 +7,10 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# 🌟 SENIOR DOKUNUŞU: Sistemdeki pip, wheel ve jaraco araçlarını güncelleyip ardından bağımlılıkları kuruyoruz
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # --- Stage 2: Final Run Stage ---
 FROM python:3.11-alpine
