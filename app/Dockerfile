@@ -12,13 +12,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Stage 2: Final Run Stage ---
 FROM python:3.11-slim
 
-# 1.2: Debian/Slim uyumlu root olmayan kullanıcı ve grup oluştur
+# 1.2: None-root kullanıcı ve grup oluştur
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 WORKDIR /app
 
-# 🌟 DOKUNUŞ 1 (OS Hardening): İşletim sistemi paketlerini güncelle ve açıkları kapat!
-# Ardından imaj boyutu şişmesin diye apt önbelleğini temizliyoruz kanka.
+# OS Paketlerini güncelle ve açıkları kapat
 RUN apt-get update && \
     apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
@@ -29,8 +28,15 @@ COPY main.py .
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 🌟 DOKUNUŞ 2 (Python Hardening): İmajdaki hazır gelen açık kaynaklı kalıntıları tamamen uçur!
-RUN pip uninstall -y wheel jaraco.context
+# 🌟 CLAUDE'UN NOKTA ATIŞI EXPLICIT PIP DÜZELTMESİ:
+# Sanal ortamın pip'ini doğrudan hedef alarak METADATA'yı siliyoruz, 
+# ardından hem sistem hem venv altındaki tüm fiziksel kalıntıları yok ediyoruz!
+RUN /opt/venv/bin/pip uninstall -y wheel jaraco.context jaraco.functools || true && \
+    rm -rf /usr/local/lib/python3.11/site-packages/wheel* \
+           /usr/local/lib/python3.11/site-packages/jaraco* \
+           /opt/venv/lib/python3.11/site-packages/wheel* \
+           /opt/venv/lib/python3.11/site-packages/jaraco* \
+           /opt/venv/bin/wheel
 
 # Klasör yetkilerini oluşturulan kullanıcıya ver
 RUN chown -R appuser:appgroup /app
