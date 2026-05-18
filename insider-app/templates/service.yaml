@@ -5,13 +5,14 @@ metadata:
   labels:
     {{- include "insider-app.labels" . | nindent 4 }}
 spec:
-  # values.yaml'daki service.type değerini okur (Varsayılan olarak ClusterIP)
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: http
+      {{- if eq .Values.service.type "NodePort" }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
       protocol: TCP
       name: http
-  # İsteklerin hangi pod'lara yönlendirileceğini seçer (Bizim FastAPI pod'ları)
   selector:
     {{- include "insider-app.selectorLabels" . | nindent 4 }}
