@@ -77,7 +77,8 @@ resource "aws_instance" "insider_server" {
   subnet_id              = data.aws_subnets.default.ids[0]
   vpc_security_group_ids = [aws_security_group.insider_sg.id]
   key_name               = "insider-case-key"
-
+  source_dest_check      = false
+  
   root_block_device {
     volume_size = 20 # Minikube ve Docker imajları için 20 GB disk alanı yeterli
     volume_type = "gp3"
