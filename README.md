@@ -138,21 +138,49 @@ Manuel olarak imaj build etme, terminali Minikube'a bağlama ve Helm yükleme ad
 
 ```bash
 # Script'e çalıştırma izni verin
-chmod +x deploy.sh
+chmod +x ./insider-app/deploy.sh
 
 # Otomasyon zincirini başlatın
-./deploy.sh
+./insider-app/deploy.sh
 ```
 
 ### 3. Kurulumun Doğrulanması
-
+ 
 Dağıtım otomasyonu bittikten sonra pod'un sağlık kontrollerini (Liveness/Readiness Probe) geçerek ayağa kalktığını doğrulayın:
-
+ 
 ```bash
 kubectl get pods
 ```
-
+ 
 `STATUS: Running` ve `READY: 1/1` çıktısını gördüğünüzde uygulamanız AWS üzerindeki Kubernetes kümesinde başarıyla canlıya alınmış demektir! 🎉
+ 
+### 4. Port ve Servis Kararlılığının Doğrulanması
+ 
+Helm servisimiz (`templates/service.yaml`), geliştirme ortamında rastgele port atamalarını engellemek ve kararlı (deterministic) bir altyapı sunmak için `NodePort: 30080` değerine sabitlenmiştir. Servisin doğru porttan kalktığını doğrulamak için:
+ 
+```bash
+kubectl get svc
+```
+ 
+Çıktıda `insider-dev-insider-app` servisinin karşısında `8080:30080/TCP` ifadesini görmelisiniz.
+ 
+### 🌐 5. Uygulamayı Dış Dünyaya Açma (AWS & Kernel Level Routing)
+ 
+Kubernetes (Minikube) cluster ağı AWS EC2 üzerinde izole bir sandbox içinde çalışmaktadır. `kubectl port-forward` gibi kırılgan ve geçici süreçlerin sessizce çökmesini engellemek için Linux çekirdek seviyesinde (kernel-level) kalıcı yönlendirme yapılmıştır.
+ 
+> ⚠️ **AWS Network Kritiği:** AWS, varsayılan olarak bir EC2 sunucusunun kendisine ait olmayan IP paketlerini filtreler. Dışarıdan gelen isteklerin Minikube alt ağına güvenli şekilde yönlendirilmesi için `source_dest_check` özelliği `false` olarak set edilmelidir. **Bu ayar Terraform mimarimize gömülmüştür.**
+ 
+Bu adım tamamen `deploy.sh` tarafından otomatik olarak yönetilmektedir. Script; Minikube IP'sini dinamik olarak alır, eski iptables kurallarını temizler ve yeni kuralları çaker. **Ekstra bir komut çalıştırmanıza gerek yoktur.**
+ 
+### 🎯 6. Canlı Erişim Testi
+ 
+Tüm kurulum tamamlandıktan sonra dünya genelindeki herhangi bir tarayıcıdan uygulamanın sağlık endpoint'ine erişebilirsiniz:
+ 
+```
+http://<AWS_ELASTIC_IP>:30080/healthz
+```
+ 
+Ekranda `{"status":"healthy"}` çıktısını görüyorsanız sistem tüm katmanlarıyla başarıyla ayaktadır! 🚀
 
 ---
 
