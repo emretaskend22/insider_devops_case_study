@@ -1,0 +1,88 @@
+name: "Continuous Integration & DevSecOps Pipeline"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write      # AWS OIDC için JWT token üretme izni 
+  contents: read       
+  packages: write      # GitHub Container Registry (GHCR) için push izni
+
+jobs:
+  security-and-quality:
+    name: "Code Quality & Security Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      # Python resmi kurulumu
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # Statik kod analizi (Linter)
+      - name: "Lint with Ruff"
+        run: |
+          pip install ruff
+          ruff check app/
+
+      # Sır/Şifre taraması
+      - name: "Check for Secrets with GitLeaks"
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-secure-image:
+    name: "📦 Docker Build & Container Security"
+    needs: security-and-quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "🗂️ Checkout Repository"
+        uses: actions/checkout@v4
+
+      # AWS OIDC Kimlik Doğrulama (Yerinde duruyor, AWS bağlantımız aktif)
+      - name: "🔑 Configure AWS Credentials via OIDC"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      # 🐳 Docker İmajını Yerelde Build Ediyoruz
+      - name: "🐳 Build Docker Image"
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} ./app
+          docker tag ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:latest
+
+      # 🛡️ Siber Güvenlik Filtresi 
+      - name: "🛡️ Run Trivy Vulnerability Scanner"
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          trivyignores: './.trivyignore'
+
+      # GitHub Paket Deposuna (GHCR) Otomatik Giriş Yapma
+      - name: "🔓 Login to GitHub Container Registry"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} 
+
+      # Güvenlikten geçen imajı GHCR'ye pushluyoruz
+      - name: "🚀 Push Image to GHCR"
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}:latest
