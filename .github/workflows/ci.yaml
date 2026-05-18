@@ -1,0 +1,61 @@
+name: "Continuous Integration & DevOps Pipeline"
+
+# Pipeline hangi durumlarda tetiklenecek?
+on:
+  push:
+    branches: [ "main" ] # main'e kod pushlandığında
+  pull_request:
+    branches: [ "main" ] # veya main'e bir Pull Request açıldığında
+
+# Pipeline'ın AWS OIDC ile şifresiz konuşabilmesi için gereken kurumsal izinler
+permissions:
+  id-token: write      # AWS OIDC federasyonu için JWT token üretme izni 
+  contents: read       # Repodaki kodları okuma izni
+  packages: write      # GitHub Packages (GHCR) içerisine imaj pushlama izni
+
+jobs:
+  # JOB 1: Kod Kalitesi ve Güvenlik Taramaları
+  security-and-quality:
+    name: "🚀 Code Quality & Security Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. GitHub Runner'ın içine bizim kodları çekiyoruz
+      - name: "🗂️ Checkout Repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # GitLeaks'in tüm geçmişi (commit history) tarayabilmesi için tam geçmişi çekiyoruz
+
+      # 2. Python ortamını kuruyoruz
+      - name: "🐍 Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # 3. Linter (Kod Standartları): Ruff ile statik kod analizi
+      - name: "🔍 Lint with Ruff (Code Quality)"
+        run: |
+          pip install ruff
+          # Kurumsal kurallar: Söz dizimi hatalarını yakala, standart dışı yapıları raporla
+          ruff check app/
+
+      # 4. Siber Güvenlik Filtresi 1: GitLeaks ile Sır/Şifre Taraması
+      - name: "🔒 Check for Secrets with GitLeaks"
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # NOT: Eğer repoda hardcoded bir AWS Key veya şifre bulursa pipeline burada fail olacak
+
+  # JOB 2: Docker Build & Trivy Güvenlik Taraması 
+  build-and-secure-image:
+    name: "📦 Docker Build & Container Security"
+    needs: security-and-quality # Önce linter ve GitLeaks'ten geçiş
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "🗂️ Checkout Repository"
+        uses: actions/checkout@v4
+
+      # Burada duralım kanka, bir sonraki adımda burayı AWS OIDC ve Trivy ile dolduracağız!
+      - name: "🚧 Placeholder for Docker & Security"
+        run: echo "Altyapı hazır kanka, bir sonraki adıma geçebiliriz."
