@@ -42,32 +42,47 @@ jobs:
 
   build-and-secure-image:
     name: "📦 Docker Build & Container Security"
-    needs: security-and-quality # Önce linter ve gitleaks temiz çıkmalı!
+    needs: security-and-quality
     runs-on: ubuntu-latest
 
     steps:
       - name: "🗂️ Checkout Repository"
         uses: actions/checkout@v4
 
-      # AWS OIDC KIMLIK DOĞRULAMA (ŞİFRESİZ)
+      # AWS OIDC Kimlik Doğrulama (Yerinde duruyor, AWS bağlantımız aktif)
       - name: "🔑 Configure AWS Credentials via OIDC"
         uses: aws-actions/configure-aws-credentials@v4
         with:
           audience: sts.amazonaws.com
-          aws-region: eu-central-1 
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }} 
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      # 🐳 Docker İmajını Yerelde Build 
+      # 🐳 Docker İmajını Yerelde Build Ediyoruz
       - name: "🐳 Build Docker Image"
         run: |
-          docker build -t insider-app:${{ github.sha }} ./app
+          docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} ./app
+          docker tag ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:latest
 
-      # 🛡️ SİBER GÜVENLİK FİLTRESİ 2: Trivy ile İmaj Açık Taraması
+      # 🛡️ Siber Güvenlik Filtresi 
       - name: "🛡️ Run Trivy Vulnerability Scanner"
-        uses: aquasecurity/trivy-action@master 
+        uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'insider-app:${{ github.sha }}'
+          image-ref: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
           trivyignores: './.trivyignore'
+
+      # GitHub Paket Deposuna (GHCR) Otomatik Giriş Yapma
+      - name: "🔓 Login to GitHub Container Registry"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} 
+
+      # Güvenlikten geçen imajı GHCR'ye pushluyoruz
+      - name: "🚀 Push Image to GHCR"
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}:latest
