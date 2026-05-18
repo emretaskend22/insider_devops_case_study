@@ -104,3 +104,79 @@ output "public_ip" {
   value       = aws_eip.insider_eip.public_ip
   description = "The Elastic IP address of the EC2 instance"
 }
+
+# OIDC Sağlayıcısı (Identity Provider) Tanımı 
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+# GitHub Actions'ın AWS üzerinde üstleneceği (Assume) IAM Rolü
+resource "aws_iam_role" "github_actions_oidc_role" {
+  name        = "github-actions-oidc-role"
+  description = "Role used by GitHub Actions CI/CD pipeline for Insider Case Study"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = data.aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            # 🌟 Sadece senin GitHub reponun bu rolü üstlenmesine izin veriyoruz!
+            "token.actions.githubusercontent.com:sub" = "repo:emretaskend22/insider_devops_case_study:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "github-actions-oidc-role"
+  }
+}
+
+# Pipeline'ın saniyelik olarak kapıyı açıp (Authorize) kapatabilmesi (Revoke) için kısıtlı Politika
+resource "aws_iam_policy" "github_actions_security_group_policy" {
+  name        = "github-actions-sg-management-policy"
+  description = "Allows GitHub Actions to dynamically whitelist its IP on the insider security group"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress"
+        ]
+        Resource = "${aws_security_group.insider_sg.arn}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeSecurityGroups"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Politikayı (Policy) IAM Rolüne bağlıyoruz
+resource "aws_iam_role_policy_attachment" "github_actions_attach" {
+  role       = aws_iam_role.github_actions_oidc_role.name
+  policy_arn = aws_iam_policy.github_actions_security_group_policy.arn
+}
+
+# Çıktı (Output): Rolün ARN adresini GitHub Secrets'a (AWS_ROLE_ARN) eklemek için terminale bassın
+output "github_actions_role_arn" {
+  value       = aws_iam_role.github_actions_oidc_role.arn
+  description = "The ARN of the IAM role for GitHub Actions OIDC authentication"
+}
