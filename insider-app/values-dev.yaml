@@ -18,3 +18,10 @@ resources:
   requests:
     cpu: "100m"
     memory: "128Mi"
+
+# 2.5 Production-Ready Autoscaling Configuration Bonus 
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3      # t3.small kaynak kısıtı nedeniyle max 3 replica idealdir
+  targetCPU: 70       # Pod bazlı ortalama CPU kullanımı %70'i geçerse yeni pod tetiklenir

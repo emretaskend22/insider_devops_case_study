@@ -18,3 +18,10 @@ resources:
   requests:
     cpu: "250m"
     memory: "256Mi"
+
+# 2.5 Production-Ready Autoscaling Configuration Bonus 
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10      # Canlı ortamda yüksek erişilebilirlik (HA) için en az 2 pod ile başlanır
+  targetCPU: 70       # Prod ortamında yük durumuna göre 10 poda kadar çıkabilir

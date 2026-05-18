@@ -36,4 +36,7 @@ rm get_helm.sh # Geçici kurulum dosyasını temizliyoruz
 echo "=== 6.Configuring kubectl alias for Ubuntu user... ==="
 echo "alias kubectl='minikube kubectl --'" >> /home/ubuntu/.bashrc
 
+echo "=== 7. Enabling Minikube Metrics Server for HPA... ==="
+minikube addons enable metrics-server
+
 echo "=== Setup Completed Successfully! ==="
