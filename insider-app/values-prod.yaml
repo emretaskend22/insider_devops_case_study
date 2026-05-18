@@ -10,6 +10,10 @@ image:
   tag: latest # CI/CD komutu bunu dinamik olarak değiştirecek (Örn: v1.0.0 veya commit_sha)
   pullPolicy: Always
 
+service:
+  type: NodePort
+  port: 8080
+
 # 2.3 Resources: Ani trafik yüklerini göğüslemek için kaynak sınırlarını dikeyde 2 katına çıkardık
 resources:
   limits:

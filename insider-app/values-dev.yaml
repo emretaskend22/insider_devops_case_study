@@ -10,6 +10,12 @@ image:
   tag: local
   pullPolicy: Never
 
+# 🌐 Servis Konfigürasyonu: Uygulamayı AWS ve Minikube üzerinden dış dünyaya açıyoruz
+service:
+  type: NodePort
+  port: 8080        # Container'ın içeride (FastAPI) dinlediği port
+  nodePort: 30080   # Terraform Security Group'ta dünyaya açtığımız sabit port
+
 # 2.3 Resources: Test ortamı için hafif kaynak sınırları
 resources:
   limits:

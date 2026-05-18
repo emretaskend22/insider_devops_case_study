@@ -46,12 +46,12 @@ resource "aws_security_group" "insider_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Kubernetes NodePort Aralığı (30000-32767): Grafana ve Uygulama portları için 
+  # Kubernetes NodePort Aralığı (30000-32767): dış dünya erişimi 
   ingress {
     from_port   = 30000
     to_port     = 32767
     protocol    = "tcp"
-    cidr_blocks = ["${var.my_ip}/32"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   # Sunucunun internete çıkabilmesi için tüm çıkış (egress) trafiğine izin veriyoruz
