@@ -2,14 +2,14 @@ name: "Continuous Integration & DevSecOps Pipeline"
 
 on:
   push:
-    branches: [ "main", "feat/cicd-pipeline" ] # 🌟 TEST İÇİN GEÇİCİ OLARAK BİZİM BRANCH'İ DE EKLEDİM KANKA!
+    branches: [ "main", "feat/cicd-pipeline" ]
   pull_request:
     branches: [ "main" ]
 
 permissions:
-  id-token: write      
+  id-token: write      # AWS OIDC için JWT token üretme izni 
   contents: read       
-  packages: write      
+  packages: write      # GitHub Container Registry (GHCR) için push izni
 
 jobs:
   security-and-quality:
@@ -22,18 +22,53 @@ jobs:
         with:
           fetch-depth: 0 
 
-      # Python Actions resmi topluluk standardı
+      # Python resmi kurulumu
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # Statik kod analizi (Linter)
       - name: "Lint with Ruff"
         run: |
           pip install ruff
           ruff check app/
 
+      # Sır/Şifre taraması
       - name: "Check for Secrets with GitLeaks"
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-secure-image:
+    name: "📦 Docker Build & Container Security"
+    needs: security-and-quality # Önce linter ve gitleaks temiz çıkmalı!
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "🗂️ Checkout Repository"
+        uses: actions/checkout@v4
+
+      # AWS OIDC KIMLIK DOĞRULAMA (ŞİFRESİZ)
+      - name: "🔑 Configure AWS Credentials via OIDC"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          aws-region: eu-central-1 
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }} 
+
+      # 🐳 Docker İmajını Yerelde Build 
+      - name: "🐳 Build Docker Image"
+        run: |
+          docker build -t insider-app:${{ github.sha }} ./app
+
+      # 🛡️ SİBER GÜVENLİK FİLTRESİ 2: Trivy ile İmaj Açık Taraması
+      - name: "🛡️ Run Trivy Vulnerability Scanner"
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'insider-app:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' #Eğer High veya Critical açık olursa pipeline duruyor
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
