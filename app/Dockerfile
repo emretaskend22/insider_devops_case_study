@@ -1,5 +1,5 @@
 # --- Stage 1: Build Stage ---
-FROM python:3.11-slim AS builder
+FROM python:3.11-alpine AS builder
 
 WORKDIR /app
 
@@ -10,17 +10,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Stage 2: Final Run Stage ---
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
-# 1.2: None-root kullanıcı ve grup oluştur
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# 1.2: Alpine uyumlu hafif root olmayan kullanıcı ve grup oluştur
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
-
-# OS Paketlerini güncelle ve açıkları kapat
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    rm -rf /var/lib/apt/lists/*
 
 # 1.2: Sadece gerekli paketleri builderdan al
 COPY --from=builder /opt/venv /opt/venv
@@ -28,9 +23,9 @@ COPY main.py .
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 🌟 CLAUDE'UN NOKTA ATIŞI EXPLICIT PIP DÜZELTMESİ:
+# 🌟 EXPLICIT PIP + METADATA TEMİZLİĞİ (Alpine Versiyonu)
 # Sanal ortamın pip'ini doğrudan hedef alarak METADATA'yı siliyoruz, 
-# ardından hem sistem hem venv altındaki tüm fiziksel kalıntıları yok ediyoruz!
+# ardından Alpine katmanındaki tüm kalıntıları yok ediyoruz!
 RUN /opt/venv/bin/pip uninstall -y wheel jaraco.context jaraco.functools || true && \
     rm -rf /usr/local/lib/python3.11/site-packages/wheel* \
            /usr/local/lib/python3.11/site-packages/jaraco* \
@@ -46,8 +41,8 @@ USER appuser
 
 EXPOSE 8080
 
-# 1.2: HEALTHCHECK 
+# 1.2: HEALTHCHECK (Alpine'da wget yerleşik gelir, o yüzden en temiz çözümdür)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=3)" || exit 1
+  CMD wget -q --tries=1 --spider http://localhost:8080/healthz || exit 1
 
 CMD ["python", "main.py"]
