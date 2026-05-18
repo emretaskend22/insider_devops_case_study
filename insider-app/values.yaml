@@ -1,0 +1,34 @@
+# insider-app/values.yaml
+# Bu dosya tüm ortamlar için ortak olan varsayılan (default) baz şablonumuzdur.
+
+# Üretilecek Pod (kopya) sayısı
+replicaCount: 1
+
+image:
+  repository: insider-app 
+  pullPolicy: IfNotPresent
+  tag: "" 
+
+appConfig:
+  port: 8080
+
+# Kubernetes Servis Ayarları
+service:
+  type: ClusterIP
+  port: 8080
+
+# 2.3 Probes Maddesi: Sağlık kontrolleri için varsayılan ayarlar
+probes:
+  path: /healthz
+  port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+# 2.3 Resources Maddesi: Varsayılan kaynak limitleri (CPU ve RAM sınırları)
+resources:
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"

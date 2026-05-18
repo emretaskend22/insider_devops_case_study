@@ -46,12 +46,12 @@ resource "aws_security_group" "insider_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Kubernetes NodePort Aralığı (30000-32767): Grafana ve Uygulama portları için 
+  # Kubernetes NodePort Aralığı (30000-32767): dış dünya erişimi 
   ingress {
     from_port   = 30000
     to_port     = 32767
     protocol    = "tcp"
-    cidr_blocks = ["${var.my_ip}/32"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   # Sunucunun internete çıkabilmesi için tüm çıkış (egress) trafiğine izin veriyoruz
@@ -77,7 +77,8 @@ resource "aws_instance" "insider_server" {
   subnet_id              = data.aws_subnets.default.ids[0]
   vpc_security_group_ids = [aws_security_group.insider_sg.id]
   key_name               = "insider-case-key"
-
+  source_dest_check      = false
+  
   root_block_device {
     volume_size = 20 # Minikube ve Docker imajları için 20 GB disk alanı yeterli
     volume_type = "gp3"

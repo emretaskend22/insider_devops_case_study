@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "insider-app.fullname" . }}
+  labels:
+    {{- include "insider-app.labels" . | nindent 4 }}
+spec:
+  # values.yaml'daki replicaCount değerini dinamik okur (Dev'de 1, Prod'da 3 olacak)
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "insider-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "insider-app.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          # v1, v2 tag'lerini ve imaj adını values'dan çeker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          
+          # Tıpkı .env gibi: Python kodunun portunu values.yaml'dan enjekte ediyoruz kanka
+          env:
+            - name: APP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "insider-app.fullname" . }}-config
+                  key: APP_PORT
+          
+          ports:
+            - name: http
+              containerPort: {{ .Values.appConfig.port }}
+              protocol: TCP
+          
+          # 2.3 Probes Maddesi: liveness ve readiness ayarlarını /healthz endpoint'ine bağlıyoruz
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.path }}
+              port: {{ .Values.probes.port }}
+            initialDelaySeconds: {{ .Values.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.path }}
+              port: {{ .Values.probes.port }}
+            initialDelaySeconds: {{ .Values.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+          
+          # 2.3 Resources Maddesi: CPU ve RAM sınırlarını ortama göre dinamik yükler
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
