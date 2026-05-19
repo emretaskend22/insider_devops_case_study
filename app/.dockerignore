@@ -1,8 +1,9 @@
-# Git çöpleri
+# Git ve CI/CD Altyapısı
 .git
 .gitignore
+.github/
 
-# Python ve Ortam Çöpleri
+# Python ve Ortam Kalıntıları
 __pycache__/
 *.pyc
 *.pyo
@@ -12,9 +13,28 @@ env/
 venv/
 .venv/
 pip-log.txt
-pip-delete-this-directory.txt
 
-# IDE ve OS Çöpleri
+# Hassas Altyapı ve Sırlar 
+.env
+.env.*
+terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+secrets.yaml
+
+# Kubernetes ve İzleme Dosyaları 
+helm/
+monitoring-values.yaml
+servicemonitor.yaml
+
+# Dokümantasyon ve Testler
+README.md
+*.md
+tests/
+app/test_main.py
+
+# IDE ve İşletim Sistemi Çöpleri
 .DS_Store
 .vscode/
 .idea/
