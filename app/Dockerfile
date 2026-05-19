@@ -22,9 +22,7 @@ WORKDIR /workspace
 # Sadece gerekli paketleri builderdan al
 COPY --from=builder /opt/venv /opt/venv
 
-# 🚨 DEĞİŞİKLİK 2: Tek bir main.py yerine tüm 'app/' klasörünü 
-# yeni yazdığımız modüllerle birlikte içeriye kopyalıyoruz!
-COPY app/ ./app/
+COPY . .
 
 ENV PATH="/opt/venv/bin:$PATH"
 
