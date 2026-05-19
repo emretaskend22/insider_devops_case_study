@@ -22,7 +22,7 @@ WORKDIR /workspace
 # Sadece gerekli paketleri builderdan al
 COPY --from=builder /opt/venv /opt/venv
 
-COPY . .
+COPY app/ ./app/
 
 ENV PATH="/opt/venv/bin:$PATH"
 
