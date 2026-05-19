@@ -1,10 +1,8 @@
-# 📉 monitoring-values.yaml: t3.small sunucumuz için RAM/CPU dostu Prometheus + Grafana ayarları
+# 📉 monitoring-values.yaml: t3.small sunucusu için Prometheus + Grafana ayarları
 
 prometheus:
   prometheusSpec:
-    # Verileri diskte sadece 1 gün tutsun ki disk patlamasın kanka
     retention: 1d
-    # RAM sömürmemesi için kaynak limitlerini kurumsal düzeyde kısıyoruz
     resources:
       requests:
         memory: "256Mi"
@@ -35,7 +33,6 @@ grafana:
       memory: "256Mi"
       cpu: "300m"
 
-# Bizim ufak sunucuda gerek olmayan ve RAM yiyen yan bileşenleri tamamen kapatıyoruz
 nodeExporter:
   enabled: true
 kubeStateMetrics:
