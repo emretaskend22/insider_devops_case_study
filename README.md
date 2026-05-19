@@ -228,7 +228,27 @@ kubectl get pods -w
 ```
  
 Yeni pod'lar `1/1 Running` olduğu saniye eski pod'lar sıfır kesintiyle temizlenir.
- 
+
+## 📊 Adım 6: Observability ve Otomatik Metrik Hattı (Day 4)
+
+Uygulamanın performansını, anlık istek sayılarını (RPS), hata oranlarını ve gecikme sürelerini (Latency) canlı izlemek ve kritik durumlarda alarm üretebilmek adına sisteme tam otomatik bir **Observability (İzlenebilirlik)** katmanı entegre edilmiştir.
+
+### 🧠 Mimari Kararlar (ADR & Best Practices)
+* **Bellek Optimizasyonu (Swap):** Prometheus stack'in `t3.small` (2GB RAM) üzerinde stabil çalışması için 4GB SWAP alanı devreye alınmış, bulut maliyetleri Free Tier sınırında tutulmuştur.
+* **Declarative GitOps (Helm Templates Integration):** `servicemonitor.yaml` ve `alert-rule.yaml` (Alarm kuralı) dosyaları, uygulamadan bağımsız manuel yönetilmek yerine doğrudan `./insider-app/templates/` klasörüne dahil edilmiştir. Bu sayede CI/CD pipeline her tetiklendiğinde izleme ve alarm mekanizmaları uygulama ile birlikte **tam otomatik (zero-touch)** olarak deploy edilir.
+
+### 🛠️ Altyapı Hazırlığı (Sunucuda Bir Kez Çalıştırılır)
+Monitoring core bileşenlerini (Prometheus ve Grafana) ayağa kaldırmak için sunucu içerisinde şu komutlar koşturulur:
+```bash
+# Monitoring için izole namespace oluşturulması
+kubectl create namespace monitoring
+
+# Kube-Prometheus-Stack Helm deposunun eklenmesi ve kurulumu
+helm repo add prometheus-community [https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)
+helm repo update
+helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring
+
+
 ---
 
 ## 🛠️ Detaylı Aşama Analizleri & "Neden-Niçin" Günlüğü (ADR)

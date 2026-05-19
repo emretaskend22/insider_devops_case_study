@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fastapi-error-alert
+  namespace: monitoring
+  labels:
+    release: prometheus-stack # Operator'ın bu kuralı bulması için kritik
+spec:
+  groups:
+  - name: fastapi.alerts
+    rules:
+    - alert: HighErrorRate
+      expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "FastAPI Yüksek Hata Oranı (>%5)"
+        description: "Uygulama son 2 dakikada %5'ten fazla 5xx HTTP hatası veriyor. Podları kontrol et!"
