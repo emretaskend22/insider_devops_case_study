@@ -10,11 +10,10 @@ spec:
   - name: insider-app.rules
     rules:
     - alert: FastAPIHighErrorRate
-      # Son 5 dakikadaki HTTP 5xx hatalarının, toplam isteklere oranını % bazında hesaplar
       expr: sum(rate(fastapi_requests_total{status=~"5.*"}[5m])) / sum(rate(fastapi_requests_total[5m])) * 100 > 5
       for: 1m
       labels:
         severity: critical
       annotations:
         summary: "Uygulamada HTTP Hata Oranı Çok Yüksek!"
-        description: "Pod {{ $labels.pod }} son 5 dakikada %5'ten fazla HTTP 5xx hatası döndürüyor. Güncel oran: {{ $value }}%"
+        description: {{ printf "Pod {{ $labels.pod }} son 5 dakikada %%5'ten fazla HTTP 5xx hatası döndürüyor. Güncel oran: {{ $value }}%%" | quote }}
