@@ -31,6 +31,11 @@ jobs:
         run: |
           pip install ruff
           ruff check app/
+      
+      - name: "🧪 Run Unit Tests"
+        run: |
+          pip install pytest fastapi httpx 
+          pytest app/test_main.py  
 
       - name: "Check for Secrets with GitLeaks"
         uses: gitleaks/gitleaks-action@v2
