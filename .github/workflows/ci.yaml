@@ -34,7 +34,7 @@ jobs:
       
       - name: "🧪 Run Unit Tests"
         run: |
-          pip install pytest fastapi httpx 
+          pip install pytest fastapi httpx prometheus_client
           python -m pytest app/test_main.py  
 
       - name: "Check for Secrets with GitLeaks"
