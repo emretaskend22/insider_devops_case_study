@@ -6,7 +6,7 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Stage 2: Final Run Stage ---
@@ -22,7 +22,7 @@ WORKDIR /workspace
 # Sadece gerekli paketleri builderdan al
 COPY --from=builder /opt/venv /opt/venv
 
-COPY . .
+COPY app/ ./app/
 
 ENV PATH="/opt/venv/bin:$PATH"
 
