@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insider-app-monitor
+  # Bizim uygulamanın geleceği namespace (Muhtemelen default veya dev)
+  namespace: default
+  labels:
+    release: prometheus-stack
+spec:
+  # Hangi servisi izleyeceğini seçeceğimiz etiket seçici (Service yaml'ındaki etiketlerle eşleşmeli)
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insider-app
+  # Hangi namespace'lerdeki servisleri tarayacağını belirtiyoruz
+  namespaceSelector:
+    matchNames:
+      - default
+  # Metriklerin çekileceği endpoint ayarları
+  endpoints:
+    - port: http        # Uygulama servisindeki port adı (Service yaml'ındaki name: http olmalı)
+      path: /metrics    # FastAPI'de açtığımız metrik endpoint'i
+      interval: 15s     # Tarama sıklığı
