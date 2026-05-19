@@ -2,7 +2,7 @@
 environment: "production"
 
 # 2.2 High Availability: Prod ortamında 3 pod çalıştırarak kesintisiz hizmet sağlıyoruz!
-replicaCount: 3
+replicaCount: 1
 
 # 🚀 Canlı ortam imaj politikası 
 image:
@@ -17,11 +17,11 @@ service:
 # 2.3 Resources: Ani trafik yüklerini göğüslemek için kaynak sınırlarını dikeyde 2 katına çıkardık
 resources:
   limits:
-    cpu: "500m"
-    memory: "512Mi"
+    cpu: 200m
+    memory: 256Mi
   requests:
-    cpu: "250m"
-    memory: "256Mi"
+    cpu: 100m
+    memory: 128Mi
 
 # 2.5 Production-Ready Autoscaling Configuration Bonus 
 hpa:
@@ -29,3 +29,11 @@ hpa:
   minReplicas: 2
   maxReplicas: 10      # Canlı ortamda yüksek erişilebilirlik (HA) için en az 2 pod ile başlanır
   targetCPU: 70       # Prod ortamında yük durumuna göre 10 poda kadar çıkabilir
+
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus-stack
+  interval: 15s
+  path: /metrics
+  port: http
