@@ -32,7 +32,7 @@ servicemonitor.yaml
 README.md
 *.md
 tests/
-app/test_main.py
+test_main.py
 
 # IDE ve İşletim Sistemi Çöpleri
 .DS_Store
