@@ -8,16 +8,25 @@ set -e # Herhangi bir komut hata verirse scripti anında durdur
 # Scriptin çalıştığı yer neresi olursa olsun, her zaman projenin kök dizinine odaklanmasını sağlıyoruz
 cd "$(dirname "$0")/.."
 
-echo "🔌 1. Terminal Docker daemon'ı Minikube'a bağlanıyor..."
+echo "🛡️ 1. Monitoring CRD'leri kontrol ediliyor ve gerekiyorsa kuruluyor..."
+if ! kubectl get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
+    echo "⚠️ Prometheus CRD'leri bulunamadı, yükleniyor..."
+    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
+    echo "✅ CRD'ler başarıyla yüklendi."
+else
+    echo "✅ Monitoring CRD'leri zaten kurulu, geçiliyor."
+fi
+
+echo "🔌 2. Terminal Docker daemon'ı Minikube'a bağlanıyor..."
 eval $(minikube docker-env)
 
-echo "📦 2. Uygulama imajı Minikube içinde lokal olarak build ediliyor..."
+echo "📦 3. Uygulama imajı Minikube içinde lokal olarak build ediliyor..."
 docker build -t insider-app:local -f ./app/Dockerfile .
 
-echo "🚀 3. Uygulama values-dev.yaml ayarlarıyla Kubernetes'e kuruluyor / güncelleniyor..."
+echo "🚀 4. Uygulama values-dev.yaml ayarlarıyla Kubernetes'e kuruluyor..."
 helm upgrade --install insider-dev ./insider-app -f insider-app/values-dev.yaml
 
-echo "📊 4. Dağıtım durumu kontrol ediliyor..."
+echo "📊 5. Dağıtım durumu kontrol ediliyor..."
 helm status insider-dev
 
 echo "=== 🎯 Dağıtım Otomasyonu Başarıyla Tamamlandı! ==="
