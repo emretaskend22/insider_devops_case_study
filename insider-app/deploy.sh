@@ -12,7 +12,7 @@ echo "🔌 1. Terminal Docker daemon'ı Minikube'a bağlanıyor..."
 eval $(minikube docker-env)
 
 echo "📦 2. Uygulama imajı Minikube içinde lokal olarak build ediliyor..."
-docker build -t insider-app:local ./app
+docker build -t insider-app:local -f ./app/Dockerfile .
 
 echo "🚀 3. Uygulama values-dev.yaml ayarlarıyla Kubernetes'e kuruluyor / güncelleniyor..."
 helm upgrade --install insider-dev ./insider-app -f insider-app/values-dev.yaml
