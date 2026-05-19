@@ -5,17 +5,13 @@
 
 set -e # Herhangi bir komut hata verirse scripti anında durdur
 
-# Scriptin çalıştığı yer neresi olursa olsun, her zaman projenin kök dizinine odaklanmasını sağlıyoruz
+# Scriptin çalıştığı yer neresi olursa olsun, projenin kök dizinine odaklanıyoruz
 cd "$(dirname "$0")/.."
 
-echo "🛡️ 1. Monitoring CRD'leri kontrol ediliyor ve gerekiyorsa kuruluyor..."
-if ! minikube kubectl -- get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
-    echo "⚠️ Prometheus CRD'leri bulunamadı, yükleniyor..."
-    minikube kubectl -- apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
-    echo "✅ CRD'ler başarıyla yüklendi."
-else
-    echo "✅ Monitoring CRD'leri zaten kurulu, geçiliyor."
-fi
+echo "🚀 1. Prometheus CRD'leri Helm üzerinden native olarak yükleniyor..."
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
+helm repo update >/dev/null 2>&1
+helm upgrade --install prometheus-crds prometheus-community/prometheus-operator-crds --create-namespace --namespace monitoring
 
 echo "🔌 2. Terminal Docker daemon'ı Minikube'a bağlanıyor..."
 eval $(minikube docker-env)
@@ -34,7 +30,7 @@ echo "=== 🎯 Dağıtım Otomasyonu Başarıyla Tamamlandı! ==="
 echo "🌐 [AĞ KÖPRÜSÜ] Linux Kernel seviyesinde IP yönlendirme aktif ediliyor..."
 sudo sysctl -w net.ipv4.ip_forward=1
 
-# Minikube IP'sini ve ağ maskesini (subnet) dinamik alıyoruz
+# Minikube IP'sini ve ağ maskesini dinamik alıyoruz
 MINIKUBE_IP=$(minikube ip)
 MINIKUBE_SUBNET=$(echo $MINIKUBE_IP | cut -d'.' -f1-3).0/24
 
@@ -55,16 +51,16 @@ sudo iptables -I FORWARD 1 -p tcp -s $MINIKUBE_IP --sport 30080 -j ACCEPT
 sudo iptables -I FORWARD 1 -p tcp -d $MINIKUBE_IP --dport 30080 -j ACCEPT
 sudo iptables -P FORWARD ACCEPT
 
-echo "🚀 [OUTBOUND NAT] Minikube kümesinin internete çıkabilmesi için Masquerade kuralı ekleniyor..."
+echo "🚀 [OUTBOUND NAT] Masquerade kuralı ekleniyor..."
 sudo iptables -t nat -D POSTROUTING -s $MINIKUBE_SUBNET ! -d $MINIKUBE_SUBNET -j MASQUERADE 2>/dev/null || true
 sudo iptables -t nat -A POSTROUTING -s $MINIKUBE_SUBNET ! -d $MINIKUBE_SUBNET -j MASQUERADE
 
-echo "🔄 [HAIRPIN NAT] Çift yönlü iletişim asimetrik sorunu çözülüyor..."
+echo "🔄 [HAIRPIN NAT] Çift yönlü iletişim çözülüyor..."
 sudo iptables -t nat -D POSTROUTING -p tcp -d $MINIKUBE_IP --dport 30080 -j MASQUERADE 2>/dev/null || true
 sudo iptables -t nat -A POSTROUTING -p tcp -d $MINIKUBE_IP --dport 30080 -j MASQUERADE
 
-echo "📯 [DNS FIX] Minikube içine dış dünya DNS adresleri (Google DNS) enjekte ediliyor..."
+echo "📯 [DNS FIX] Minikube DNS adresleri enjekte ediliyor..."
 minikube ssh "sudo sh -c 'echo \"nameserver 8.8.8.8\" > /etc/resolv.conf'"
 
-echo "🎯 [BAŞARILI] Uygulama hem içeri hem dışarı doğru tamamen ağ özgürlüğüne kavuştu!"
+echo "🎯 [BAŞARILI] Uygulama tamamen ağ özgürlüğüne kavuştu!"
 echo "🌐 Canlı Adres: http://<AWS_ELASTIC_IP>:30080/healthz"
