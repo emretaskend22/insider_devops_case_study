@@ -67,9 +67,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      
       - name: "🐳 Build Docker Image"
         run: |
-          docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} ./app
+          docker build -f app/Dockerfile -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
           docker tag ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:latest
 
       # Trivy action pin'lendi — master kullanmak supply chain riski
@@ -106,7 +107,7 @@ jobs:
       - name: "🗂️ Checkout Repository"
         uses: actions/checkout@v4
 
-      # 1. AWS OIDC ile geçici yetki alıyoruz (Zaten kurmuştuk, aynen kullanıyoruz)
+      # 1. AWS OIDC ile geçici yetki alıyoruz
       - name: "🔑 Configure AWS Credentials via OIDC"
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -121,7 +122,7 @@ jobs:
           RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
           echo "runner_ip=${RUNNER_IP}" >> $GITHUB_OUTPUT
 
-      # 3. 🔓 AWS CLI ile Security Group'a sadece bu IP için geçici SSH (22) izni ekliyoruz kanka!
+      # 3. 🔓 AWS CLI ile Security Group'a sadece bu IP için geçici SSH (22) izni ekliyoruz
       - name: "🔓 Whitelist GitHub Runner IP in Security Group"
         run: |
           aws ec2 authorize-security-group-ingress \
@@ -150,7 +151,7 @@ jobs:
 
       # 5. 🔒 BÜYÜK FİNAL: İşimiz bitti, kapıyı hemen arkamızdan kilitliyoruz (IP'yi siliyoruz!)
       - name: "🔒 Revoke GitHub Runner IP from Security Group"
-        if: always() # 🔥 Dağıtım patlasa bile bu adım MUTLAKA çalışıp kapıyı kapatacak!
+        if: always() # Dağıtım patlasa bile bu adım MUTLAKA çalışıp kapıyı kapatacak!
         run: |
           aws ec2 revoke-security-group-ingress \
             --group-id ${{ secrets.EC2_SG_ID }} \
