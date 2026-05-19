@@ -80,7 +80,7 @@ resource "aws_instance" "insider_server" {
   source_dest_check      = false
   
   # Makine açılır açılmaz scripti otomatik çalıştırır.
-  user_data = file("${path.module}/install_dependencies.sh")
+  user_data = file("${path.module}/scripts/install_dependencies.sh")
 
   root_block_device {
     volume_size = 20 # Minikube ve Docker imajları için 20 GB disk alanı yeterli
