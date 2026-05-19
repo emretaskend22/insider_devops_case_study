@@ -9,9 +9,9 @@ set -e # Herhangi bir komut hata verirse scripti anında durdur
 cd "$(dirname "$0")/.."
 
 echo "🛡️ 1. Monitoring CRD'leri kontrol ediliyor ve gerekiyorsa kuruluyor..."
-if ! kubectl get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
+if ! minikube kubectl -- get crd prometheusrules.monitoring.coreos.com >/dev/null 2>&1; then
     echo "⚠️ Prometheus CRD'leri bulunamadı, yükleniyor..."
-    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
+    minikube kubectl -- apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
     echo "✅ CRD'ler başarıyla yüklendi."
 else
     echo "✅ Monitoring CRD'leri zaten kurulu, geçiliyor."
