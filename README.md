@@ -21,7 +21,7 @@ Projede **Maliyet Bilinci (Cost-Awareness)**, **Yüksek Erişilebilirlik (High A
 
 ---
 
-# 🚀 INSIDER DEVOPS CASE STUDY - HOW TO WORK
+# 🚀 INSIDER DEVOPS CASE STUDY - HOW TO RUN
 
 Bu rehber, projenin GitHub'dan sıfır kopyasını çeken bir geliştiricinin, altyapıyı AWS üzerinde Terraform ile kurup, içeride Minikube ve Helm ile uygulamayı sıfırdan ayağa kaldırması için gereken tüm adımları kronolojik olarak içerir.
 
@@ -182,6 +182,53 @@ http://<AWS_ELASTIC_IP>:30080/healthz
  
 Ekranda `{"status":"healthy"}` çıktısını görüyorsanız sistem tüm katmanlarıyla başarıyla ayaktadır! 🚀
 
+## 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
+ 
+`main` branch'ine yapılan her push ve merge işleminde; test, güvenlik taraması (Trivy, GitLeaks, Ruff) ve AWS sunucusuna sıfır kesintiyle (Zero-Downtime Rolling Update) otomatik dağıtım yapılır.
+ 
+### 🔐 1. Güvenlik ve Sır İzolasyonu (Bootstrap)
+ 
+Siber güvenlik standartları gereği GHCR token'ı SSH tüneli üzerinden cleartext olarak taşınmaz. Bunun yerine Kubernetes'e image pull yetkisi **bir kez manuel olarak** tanımlanır:
+ 
+```bash
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username="<YOUR_GITHUB_USERNAME>" \
+  --docker-password="<YOUR_GITHUB_PAT>" \
+  --docker-email="<YOUR_GITHUB_EMAIL>"
+```
+ 
+> 🔒 Bu secret cluster hafızasına güvenli şekilde gömüldükten sonra pipeline hiçbir hassas bilgi taşımaz.
+ 
+### ⚙️ 2. GitHub Secrets Kurulumu
+ 
+Reponuzun **Settings → Secrets and variables → Actions** sayfasına giderek şu 5 parametreyi tanımlayın:
+ 
+| Secret Key | Açıklama | Nereden Alınır? |
+|---|---|---|
+| `AWS_ROLE_ARN` | GitHub Actions OIDC Rolü | Terraform çıktısı |
+| `EC2_SG_ID` | AWS Security Group ID | Terraform çıktısı veya AWS Console |
+| `EC2_HOST` | Sunucunun Public IP Adresi | Terraform çıktısı (`public_ip`) |
+| `EC2_USERNAME` | Sunucu kullanıcı adı | `ubuntu` |
+| `EC2_SSH_KEY` | SSH Private Key | `.pem` dosyasının tüm içeriği |
+ 
+### 🚀 3. Otomatik Dağıtım ve Zero-Downtime Testi
+ 
+`main`'e bir commit push'layın veya PR merge'leyin. Pipeline şu zinciri otomatik çalıştırır:
+ 
+1. **Linter & Secrets Scan** — Ruff kod kalitesini, GitLeaks sır sızıntısını denetler
+2. **Docker Build & Trivy Scan** — İmaj derlenir, Trivy CRITICAL/HIGH açık tarar, temiz imaj GHCR'a push'lanır
+3. **Dynamic IP Whitelisting** — Runner'ın anlık IP'si bulunur, Security Group'a sadece o saniye SSH izni eklenir
+4. **Automated Rolling Update** — Helm Chart `values-prod.yaml` ile güncellenir, yeni pod'lar ayağa kalkar
+5. **Dynamic Firewall Revoke** — Dağıtım başarılı olsa da olmasa da (`if: always()`) kapı anında kilitlenir
+Pod'ların canlı durumunu izlemek için:
+ 
+```bash
+kubectl get pods -w
+```
+ 
+Yeni pod'lar `1/1 Running` olduğu saniye eski pod'lar sıfır kesintiyle temizlenir.
+ 
 ---
 
 ## 🛠️ Detaylı Aşama Analizleri & "Neden-Niçin" Günlüğü (ADR)

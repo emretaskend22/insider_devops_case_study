@@ -82,6 +82,14 @@ jobs:
         run: |
           docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
           docker push ghcr.io/${{ github.repository }}:latest
+      
+      # 📋 BONUS CASE: Syft ile SBOM (Software Bill of Materials) Üretimi
+      - name: "📋 Generate SBOM with Syft"
+        uses: anchore/sbom-action@v0.18.0
+        with:
+          image: 'ghcr.io/${{ github.repository }}:${{ github.sha }}'
+          output-file: 'sbom.json'
+          upload-artifact: true
 
   deploy-to-minikube:
     name: "🚀 Continuous Deployment (Helm & Minikube)"

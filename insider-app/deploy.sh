@@ -5,7 +5,7 @@
 
 set -e # Herhangi bir komut hata verirse scripti anında durdur
 
-# Scriptin çalıştığı yer neresi olursa olsun, her zaman projenin kök dizinine (insider_devops_case_study) odaklanmasını sağlıyoruz
+# Scriptin çalıştığı yer neresi olursa olsun, her zaman projenin kök dizinine odaklanmasını sağlıyoruz
 cd "$(dirname "$0")/.."
 
 echo "🔌 1. Terminal Docker daemon'ı Minikube'a bağlanıyor..."
@@ -25,17 +25,27 @@ echo "=== 🎯 Dağıtım Otomasyonu Başarıyla Tamamlandı! ==="
 echo "🌐 [AĞ KÖPRÜSÜ] Linux Kernel seviyesinde IP yönlendirme aktif ediliyor..."
 sudo sysctl -w net.ipv4.ip_forward=1
 
-echo "📡 [IPTABLES] AWS Port 30080 -> Minikube IP yönlendirme kuralları işleniyor..."
-# Minikube IP'sini dinamik alıyoruz ki yarın öbür gün IP değişirse script patlamasın!
+# Minikube IP'sini ve ağ maskesini (subnet) dinamik alıyoruz ki kurallar hatasız eşleşsin
 MINIKUBE_IP=$(minikube ip)
+MINIKUBE_SUBNET=$(echo $MINIKUBE_IP | cut -d'.' -f1-3).0/24
 
-# Eski kurallar varsa temizle (duplicate önlemek için)
+echo "📡 [INBOUND IPTABLES] AWS Port 30080 -> Minikube IP yönlendirme kuralları işleniyor..."
+# Eski inbound kuralları varsa temizle (duplicate önlemek için)
 sudo iptables -t nat -D PREROUTING -p tcp --dport 30080 -j DNAT --to-destination $MINIKUBE_IP:30080 2>/dev/null || true
 sudo iptables -D FORWARD -p tcp -d $MINIKUBE_IP --dport 30080 -j ACCEPT 2>/dev/null || true
 
-# Yeni kuralları çak
+# Yeni inbound kurallarını çak (Dışarıdan içeri gelen trafik için)
 sudo iptables -t nat -A PREROUTING -p tcp --dport 30080 -j DNAT --to-destination $MINIKUBE_IP:30080
 sudo iptables -A FORWARD -p tcp -d $MINIKUBE_IP --dport 30080 -j ACCEPT
 sudo iptables -P FORWARD ACCEPT
 
-echo "🎯 [BAŞARILI] Uygulama dış dünyaya tamamen açıldı! Adres: http://<AWS_ELASTIC_IP>:30080/healthz"
+echo "🚀 [OUTBOUND NAT] Minikube kümesinin internete çıkabilmesi için Masquerade kuralı ekleniyor..."
+# Eski outbound kuralları temizle ve yenisini çak (İçeriden dışarıya internet erişimi için)
+sudo iptables -t nat -D POSTROUTING -s $MINIKUBE_SUBNET ! -d $MINIKUBE_SUBNET -j MASQUERADE 2>/dev/null || true
+sudo iptables -t nat -A POSTROUTING -s $MINIKUBE_SUBNET ! -d $MINIKUBE_SUBNET -j MASQUERADE
+
+echo "📯 [DNS FIX] Minikube içine dış dünya DNS adresleri (Google DNS) enjekte ediliyor..."
+minikube ssh "sudo sh -c 'echo \"nameserver 8.8.8.8\" > /etc/resolv.conf'"
+
+echo "🎯 [BAŞARILI] Uygulama hem içeri hem dışarı doğru tamamen ağ özgürlüğüne kavuştu!"
+echo "🌐 Canlı Adres: http://<AWS_ELASTIC_IP>:30080/healthz"
