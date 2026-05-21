@@ -1,34 +1,33 @@
-# Canlı (Production) ortamı konfigürasyonu
 environment: "production"
 
-# 2.2 High Availability: Prod ortamında 3 pod çalıştırarak kesintisiz hizmet sağlıyoruz!
-replicaCount: 1
+# 2.2 High Availability: Canlı ortamda yüksek erişilebilirlik için minimum 3 pod ile başlıyoruz. Bu, tek bir pod'un arızalanması durumunda bile uygulamanın çalışmaya devam etmesini sağlar.
+replicaCount: 3
 
 # 🚀 Canlı ortam imaj politikası 
 image:
   repository: emretaskend/insider-app 
-  tag: latest # CI/CD komutu bunu dinamik olarak değiştirecek (Örn: v1.0.0 veya commit_sha)
+  tag: latest 
   pullPolicy: Always
 
 service:
   type: NodePort
   port: 8080
 
-# 2.3 Resources: Ani trafik yüklerini göğüslemek için kaynak sınırlarını dikeyde 2 katına çıkardık
+# 2.3 Resources: Ani trafik yüklerini için kaynak sınırlarını Vertical optimize ettik
 resources:
   limits:
-    cpu: 200m
-    memory: 256Mi
+    cpu: 500m        # Yarım çekirdek (Max çıkabileceği seviye)
+    memory: 512Mi    # 512 MB RAM (Max çıkabileceği seviye)
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 200m        # Kümden garanti olarak istediği işlemci gücü
+    memory: 256Mi    # Kümeden garanti olarak istediği RAM
 
-# 2.5 Production-Ready Autoscaling Configuration Bonus 
+# 2.5 Production-Ready Autoscaling Configuration (HPA)
 hpa:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 10      # Canlı ortamda yüksek erişilebilirlik (HA) için en az 2 pod ile başlanır
-  targetCPU: 70       # Prod ortamında yük durumuna göre 10 poda kadar çıkabilir
+  minReplicas: 3      
+  maxReplicas: 10     # Ani trafik artışında yatayda Horizontal 10 poda kadar genişler
+  targetCPU: 75       # CPU kullanımı %75'i geçtiğinde yeni pod eklenir
 
 serviceMonitor:
   enabled: true

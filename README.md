@@ -45,189 +45,318 @@ pip install -r requirements.txt
 cd ..
 ```
 
----
+## 🗺️ Adım 2: AWS Üzerinde Altyapının Kurulması (Terraform)
 
-## 🗺️ Adım 2: Altyapının AWS Üzerinde Kurulması (Terraform)
+AWS üzerinde gerekli sunucu (EC2) ve network kaynaklarını (VPC, Security Group vb.) ayağa kaldırmak için Terraform kullanıyoruz.
 
-AWS üzerinde gerekli sunucu (EC2) ve network (VPC, Security Group) kaynaklarını ayağa kaldırmak için Terraform dizinine geçiyoruz.
+### 1️⃣ `terraform.tfvars` Dosyasının Hazırlanması
 
-### 1. `terraform.tfvars` Dosyasının Hazırlanması
-
-`terraform/` klasörünün içerisine girin ve hem kendi lokal IP adresinizi hem de AWS hesabınızda bulunan SSH anahtarınızın (.pem) adını tanımlayacağınız bir `terraform.tfvars` dosyası oluşturun:
+`terraform/` klasörüne girin ve aşağıdaki içerikle bir `terraform.tfvars` dosyası oluşturun:
 
 ```hcl
 # terraform/terraform.tfvars
+
 my_ip    = "xx.xx.xx.xx"       # Kendi lokal IP adresiniz
 key_name = "your-aws-key-name" # AWS panelindeki mevcut SSH Key (.pem) adınız
 ```
 
-### 🔑 2. SSH Anahtarının (`.pem`) Hazırlanması
-
-AWS panelinden indirdiğiniz `your-aws-key-name.pem` dosyasını, Terraform komutlarını koşturacağınız yerle aynı dizine (`terraform/` klasörünün içine) taşıyın. Ardından, Linux/Mac sistemlerde SSH bağlantısı sırasında güvenlik hatası (`Unprotected Private Key File`) almamak için bu anahtarın dosya izinlerini kısıtlayın:
-
-```bash
-# Sadece dosya sahibinin okuyabilmesi için izinleri 400 yapıyoruz (Kritik Adım!)
-chmod 400 your-aws-key-name.pem
-```
-
-### 3. Altyapının Ayağa Kaldırılması
-
-Aşağıdaki komutları sırasıyla çalıştırarak AWS kaynaklarını oluşturun:
-
-```bash
-terraform init
-terraform plan
-terraform apply -auto-approve
-cd ..
-```
-
-Komut başarıyla tamamlandığında, Terraform çıktı (output) olarak sunucunun `public_ip` adresini ekrana basacaktır.
+- `my_ip`: Kendi internet IP adresiniz
+- `key_name`: AWS üzerinde oluşturduğunuz SSH Key Pair adı
 
 ---
 
-## 💻 Adım 3: AWS Sunucusuna Bağlantı ve Temel Kurulumlar
+### 🔑 2️⃣ SSH Anahtarının (.pem) Hazırlanması
 
-### 1. Sunucuya SSH ile Giriş Yapma
+AWS panelinden indirdiğiniz `.pem` dosyasını `terraform/` klasörünün içine taşıyın.
 
-Terraform'un çıktı olarak verdiği IP adresini ve `terraform/` klasörünün içine koyup izinlerini ayarladığınız o güvenli anahtarı kullanarak sunucuya bağlanın:
+Daha sonra Linux/macOS sistemlerde güvenlik hatası almamak için dosya izinlerini kısıtlayın:
+
+```bash
+chmod 400 your-aws-key-name.pem
+```
+
+---
+
+### ☁️ 3️⃣ AWS Kaynaklarının Oluşturulması
+
+Aşağıdaki komutları sırasıyla çalıştırın:
+
+```bash
+cd terraform
+
+terraform init
+terraform plan
+terraform apply -auto-approve
+
+cd ..
+```
+
+Kurulum tamamlandığında Terraform size EC2 sunucusunun `public_ip` bilgisini verecektir.
+
+---
+
+# 💻 Adım 3: AWS Sunucusuna Bağlantı & Otomatik Altyapı Kurulumu
+
+Bu projede **Separation of Concerns** prensibi uygulanmıştır.
+
+Sunucu altyapısı:
+
+- Docker
+- Minikube
+- Kubernetes
+- IPTables NAT kuralları
+- Namespace yapıları
+- SWAP ayarları
+
+tamamen Terraform tarafından tetiklenen `install_dependencies.sh` (Cloud-Init / User-Data) ile otomatik olarak kurulmaktadır.
+
+---
+
+### 🔐 1️⃣ Sunucuya SSH ile Bağlanma
+
+Terraform çıktısındaki public IP adresini kullanarak EC2 sunucusuna bağlanın:
 
 ```bash
 ssh -i terraform/your-aws-key-name.pem ubuntu@<EC2_PUBLIC_IP>
 ```
 
-### 2. Projenin Sunucu İçerisinde Klonlanması
+---
 
-Sunucu içerisine başarıyla girdikten sonra, en güncel kodları sunucu diskine çekip proje klasörüne giriş yapın:
+### ⏳ 2️⃣ Cloud-Init Kurulum Sürecini İzleme (Opsiyonel)
 
-```bash
-git clone https://github.com/emretaskend22/insider_devops_case_study.git
-cd insider_devops_case_study
-```
+Sunucuya ilk girişte Kubernetes, Docker ve ağ yönlendirmeleri arka planda kuruluyor olacaktır.
 
-### 🛠️ 3. Sunucu Bağımlılıklarının Kurulması (`install_dependencies.sh`)
-
-Projede bulut maliyetlerini minimumda tutmak adına `t3.small` (2GB RAM) seçilmiştir. Sunucunun Minikube, Docker ve Helm'i kaldırabilmesi için hazırlanan otomasyon scriptini çalıştırın:
+Kurulum loglarını canlı izlemek için:
 
 ```bash
-# Script'e çalıştırma izni verin
-chmod +x install_dependencies.sh
-
-# Altyapı kurulum zincirini başlatın (SWAP, Docker, Minikube, Helm, Kubectl)
-./install_dependencies.sh
+tail -f /var/log/cloud-init-output.log
 ```
 
-> 🚨 **Kritik Linux Notu (Oturum Yenileme):** Script içerisindeki `usermod` komutuyla kullanıcınız Docker grubuna dahil edilmiştir. Bu grup değişikliğinin sunucuda anında aktif olması ve sonraki adımlarda `Permission Denied` hatası almamak için şu komutla terminal oturumunuzu yenileyin:
->
-> ```bash
-> newgrp docker
-> ```
+Aşağıdaki mesajı gördüğünüzde altyapı tamamen hazırdır:
+
+```bash
+=== Setup Completed Successfully! ===
+```
+
+Çıkmak için:
+
+```bash
+CTRL + C
+```
 
 ---
 
-## ☸️ Adım 4: Kubernetes (Minikube) & Helm ile Dağıtım
-
-Sunucumuz `install_dependencies.sh` ile bir Kubernetes cluster'ına dönüştükten sonra, uygulamamızı network bağımlılıklarından uzak tutarak doğrudan **Minikube İç Mekanizması (Local Registry Injection)** ile ayağa kaldırıyoruz.
-
-### 1. Dosya Konfigürasyonlarının Kontrolü
-
-Sistem, `values-dev.yaml` üzerinden `image.pullPolicy: Never` olarak yapılandırılmıştır. Bu sayede Kubernetes internete gitmez, birazdan sunucu içinde build edeceğimiz imajı yakalar.
-
-### 2. Tek Komutla Otomatik Dağıtım (`deploy.sh`)
-
-Manuel olarak imaj build etme, terminali Minikube'a bağlama ve Helm yükleme adımlarının tamamını otomatize eden scripti çalıştırın:
+### 📥 3️⃣ Projenin Sunucuya Klonlanması
 
 ```bash
-# Script'e çalıştırma izni verin
+git clone https://github.com/emretaskend22/insider_devops_case_study.git
+
+cd insider_devops_case_study
+```
+
+---
+
+# ☸️ Adım 4: Uygulama Dağıtımı (Helm & Automation)
+
+Altyapı bileşenleri (Docker, Kubernetes, Namespace, CRD, NAT vb.) zaten Cloud-Init ile hazırlandığı için deployment süreci tamamen stateless hale getirilmiştir.
+
+Dağıtım yalnızca uygulamaya odaklanır.
+
+---
+
+### 🚀 1️⃣ Tek Komutla Deployment
+
+Deployment scriptine çalıştırma izni verin ve başlatın:
+
+```bash
 chmod +x ./insider-app/deploy.sh
 
-# Otomasyon zincirini başlatın
 ./insider-app/deploy.sh
 ```
 
-### 3. Kurulumun Doğrulanması
- 
-Dağıtım otomasyonu bittikten sonra pod'un sağlık kontrollerini (Liveness/Readiness Probe) geçerek ayağa kalktığını doğrulayın:
- 
+Bu script:
+
+- Docker image build eder
+- Image'ı Minikube içerisine yükler
+- Helm chart deploy eder
+- `values-dev.yaml` ayarlarını uygular
+- Uygulamayı `monitoring` namespace'ine deploy eder
+
+---
+
+### ✅ 2️⃣ Deployment Doğrulama
+
+Pod'un başarıyla ayağa kalktığını doğrulayın:
+
 ```bash
-kubectl get pods
+kubectl get pods -n insider-app
 ```
- 
-`STATUS: Running` ve `READY: 1/1` çıktısını gördüğünüzde uygulamanız AWS üzerindeki Kubernetes kümesinde başarıyla canlıya alınmış demektir! 🎉
- 
-### 4. Port ve Servis Kararlılığının Doğrulanması
- 
-Helm servisimiz (`templates/service.yaml`), geliştirme ortamında rastgele port atamalarını engellemek ve kararlı (deterministic) bir altyapı sunmak için `NodePort: 30080` değerine sabitlenmiştir. Servisin doğru porttan kalktığını doğrulamak için:
- 
+
+Aşağıdakine benzer bir çıktı görmelisiniz:
+
 ```bash
-kubectl get svc
+NAME                           READY   STATUS    RESTARTS   AGE
+insider-dev-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
 ```
- 
-Çıktıda `insider-dev-insider-app` servisinin karşısında `8080:30080/TCP` ifadesini görmelisiniz.
- 
-### 🌐 5. Uygulamayı Dış Dünyaya Açma (AWS & Kernel Level Routing)
- 
-Kubernetes (Minikube) cluster ağı AWS EC2 üzerinde izole bir sandbox içinde çalışmaktadır. `kubectl port-forward` gibi kırılgan ve geçici süreçlerin sessizce çökmesini engellemek için Linux çekirdek seviyesinde (kernel-level) kalıcı yönlendirme yapılmıştır.
- 
-> ⚠️ **AWS Network Kritiği:** AWS, varsayılan olarak bir EC2 sunucusunun kendisine ait olmayan IP paketlerini filtreler. Dışarıdan gelen isteklerin Minikube alt ağına güvenli şekilde yönlendirilmesi için `source_dest_check` özelliği `false` olarak set edilmelidir. **Bu ayar Terraform mimarimize gömülmüştür.**
- 
-Bu adım tamamen `deploy.sh` tarafından otomatik olarak yönetilmektedir. Script; Minikube IP'sini dinamik olarak alır, eski iptables kurallarını temizler ve yeni kuralları çaker. **Ekstra bir komut çalıştırmanıza gerek yoktur.**
- 
-### 🎯 6. Canlı Erişim Testi
- 
-Tüm kurulum tamamlandıktan sonra dünya genelindeki herhangi bir tarayıcıdan uygulamanın sağlık endpoint'ine erişebilirsiniz:
- 
-```
+
+`STATUS: Running` ve `READY: 1/1` gördüğünüzde uygulama başarıyla deploy edilmiş demektir. 🎉
+
+---
+
+# 🌐 Adım 5: Canlı Erişim Testi
+
+Kubernetes cluster'ı EC2 üzerinde izole bir Minikube ağı içerisinde çalışmaktadır.
+
+Cloud-Init aşamasında kernel seviyesinde kalıcı `iptables NAT` kuralları tanımlandığı için:
+
+- `kubectl port-forward`
+- `minikube service`
+- `LoadBalancer`
+
+gibi geçici çözümlere ihtiyaç duyulmaz.
+
+Uygulamaya doğrudan EC2 public IP üzerinden erişebilirsiniz:
+
+```bash
 http://<AWS_ELASTIC_IP>:30080/healthz
 ```
- 
-Ekranda `{"status":"healthy"}` çıktısını görüyorsanız sistem tüm katmanlarıyla başarıyla ayaktadır! 🚀
 
-## 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
- 
-`main` branch'ine yapılan her push ve merge işleminde; test, güvenlik taraması (Trivy, GitLeaks, Ruff) ve AWS sunucusuna sıfır kesintiyle (Zero-Downtime Rolling Update) otomatik dağıtım yapılır.
- 
-### 🔐 1. Güvenlik ve Sır İzolasyonu (Bootstrap)
- 
-Siber güvenlik standartları gereği GHCR token'ı SSH tüneli üzerinden cleartext olarak taşınmaz. Bunun yerine Kubernetes'e image pull yetkisi **bir kez manuel olarak** tanımlanır:
- 
+Başarılı sonuç:
+
+```json
+{"status":"healthy"}
+```
+
+Bu çıktıyı görüyorsanız sistem tamamen canlıdır 🚀
+
+# 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
+
+`main` branch'ine yapılan her push ve merge işleminde;
+
+- Test
+- Lint
+- Secret scanning
+- Container vulnerability scanning
+- Docker image build & publish
+- AWS sunucusuna otomatik deployment
+
+işlemleri tamamen otomatik olarak gerçekleştirilir.
+
+Pipeline, Kubernetes Rolling Update mekanizması sayesinde uygulamayı **Zero-Downtime** ile günceller.
+
+---
+
+## 🔐 1️⃣ Güvenlik ve Secret İzolasyonu (Bootstrap)
+
+Güvenlik standartları gereği GHCR token'ı SSH üzerinden cleartext olarak taşınmaz.
+
+Bunun yerine Kubernetes cluster'ına image pull yetkisi yalnızca bir kez manuel olarak tanımlanır.
+
+Aşağıdaki secret, uygulamanın çalıştığı `insider-app` namespace'ine oluşturulur:
+
 ```bash
 kubectl create secret docker-registry ghcr-secret \
+  --namespace insider-app \
   --docker-server=ghcr.io \
   --docker-username="<YOUR_GITHUB_USERNAME>" \
   --docker-password="<YOUR_GITHUB_PAT>" \
   --docker-email="<YOUR_GITHUB_EMAIL>"
 ```
- 
-> 🔒 Bu secret cluster hafızasına güvenli şekilde gömüldükten sonra pipeline hiçbir hassas bilgi taşımaz.
- 
-### ⚙️ 2. GitHub Secrets Kurulumu
- 
-Reponuzun **Settings → Secrets and variables → Actions** sayfasına giderek şu 5 parametreyi tanımlayın:
- 
-| Secret Key | Açıklama | Nereden Alınır? |
-|---|---|---|
-| `AWS_ROLE_ARN` | GitHub Actions OIDC Rolü | Terraform çıktısı |
-| `EC2_SG_ID` | AWS Security Group ID | Terraform çıktısı veya AWS Console |
-| `EC2_HOST` | Sunucunun Public IP Adresi | Terraform çıktısı (`public_ip`) |
-| `EC2_USERNAME` | Sunucu kullanıcı adı | `ubuntu` |
-| `EC2_SSH_KEY` | SSH Private Key | `.pem` dosyasının tüm içeriği |
- 
-### 🚀 3. Otomatik Dağıtım ve Zero-Downtime Testi
- 
-`main`'e bir commit push'layın veya PR merge'leyin. Pipeline şu zinciri otomatik çalıştırır:
- 
-1. **Linter & Secrets Scan** — Ruff kod kalitesini, GitLeaks sır sızıntısını denetler
-2. **Docker Build & Trivy Scan** — İmaj derlenir, Trivy CRITICAL/HIGH açık tarar, temiz imaj GHCR'a push'lanır
-3. **Dynamic IP Whitelisting** — Runner'ın anlık IP'si bulunur, Security Group'a sadece o saniye SSH izni eklenir
-4. **Automated Rolling Update** — Helm Chart `values-prod.yaml` ile güncellenir, yeni pod'lar ayağa kalkar
-5. **Dynamic Firewall Revoke** — Dağıtım başarılı olsa da olmasa da (`if: always()`) kapı anında kilitlenir
-Pod'ların canlı durumunu izlemek için:
- 
-```bash
-kubectl get pods -w
+
+Bu işlem sonrasında Kubernetes cluster'ı GHCR'dan private image çekebilir hale gelir.
+
+🔒 Secret cluster içinde güvenli şekilde saklandığı için CI/CD pipeline deployment sırasında hassas credential taşımaz.
+
+---
+
+## ⚙️ 2️⃣ GitHub Actions Secrets Kurulumu
+
+Repository içerisinde aşağıdaki path'e gidin:
+
+```text
+Settings → Secrets and variables → Actions
 ```
- 
-Yeni pod'lar `1/1 Running` olduğu saniye eski pod'lar sıfır kesintiyle temizlenir.
+
+Aşağıdaki secret'ları tanımlayın:
+
+| Secret Key | Açıklama |
+|---|---|
+| `AWS_ROLE_ARN` | GitHub Actions OIDC IAM Role ARN |
+| `EC2_SG_ID` | EC2 instance Security Group ID |
+| `EC2_HOST` | EC2 Public IP adresi |
+| `EC2_USERNAME` | SSH kullanıcı adı (`ubuntu`) |
+| `EC2_SSH_KEY` | `.pem` private key içeriği |
+
+---
+
+## 🚀 3️⃣ Otomatik Deployment Süreci
+
+`main` branch'ine yapılan her merge/push işleminde pipeline otomatik olarak aşağıdaki aşamaları çalıştırır:
+
+### 🧪 Lint & Secret Scanning
+
+- Ruff ile Python lint kontrolü yapılır
+- GitLeaks ile secret sızıntısı taranır
+
+---
+
+### 🛡️ Docker Build & Vulnerability Scanning
+
+- Docker image build edilir
+- Trivy ile `CRITICAL` ve `HIGH` severity vulnerability taraması yapılır
+- Güvenli image GHCR'a push edilir
+
+---
+
+### 🔐 Dynamic IP Whitelisting
+
+GitHub Actions runner'ın anlık public IP adresi otomatik tespit edilir.
+
+Sadece deployment süresi boyunca EC2 Security Group'a geçici SSH erişimi açılır.
+
+Bu yaklaşım:
+
+- permanent SSH exposure oluşmasını engeller
+- attack surface'i minimize eder
+- zero-trust yaklaşımına daha uygundur
+
+---
+
+### ☸️ Automated Kubernetes Rolling Update
+
+Pipeline EC2 sunucusuna bağlanır ve Helm deployment'ını günceller.
+
+Yeni pod'lar `insider-app` namespace'inde ayağa kalkarken eski pod'lar Kubernetes Rolling Update stratejisiyle sıfır kesintiyle kaldırılır.
+
+---
+
+### 🔒 Automatic Firewall Revoke
+
+Deployment başarılı olsa da başarısız olsa da (`if: always()`):
+
+- geçici SSH erişimi otomatik kaldırılır
+- Security Group eski haline döndürülür
+
+---
+
+## 📊 4️⃣ Rolling Update Sürecini İzleme
+
+Deployment sırasında pod geçişlerini canlı izlemek için:
+
+```bash
+kubectl get pods -n insider-app -w
+```
+
+Yeni pod'lar:
+
+```text
+READY   STATUS
+1/1     Running
+```
+
+durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır.
+
+Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder 🚀
 
 ## 📊 Adım 6: Observability ve Otomatik Metrik Hattı (Day 4)
 
