@@ -4,13 +4,17 @@ metadata:
   name: fastapi-error-alert
   namespace: monitoring
   labels:
-    release: prometheus-stack # Operator'ın bu kuralı bulması için kritik
+    release: prometheus-stack 
+    app: insider-app          
 spec:
   groups:
   - name: fastapi.alerts
     rules:
     - alert: HighErrorRate
-      expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+      expr: |
+        sum(rate(http_requests_total{status=~"5..", job="insider-app"}[5m])) 
+        / 
+        sum(rate(http_requests_total{job="insider-app"}[5m])) > 0.05
       for: 2m
       labels:
         severity: critical
