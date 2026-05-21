@@ -15,13 +15,13 @@ async def observability_middleware(request: Request, call_next):
     if request.url.path != "/metrics":
         HTTP_REQUESTS_TOTAL.labels(
             method=request.method, 
-            endpoint=request.url.path, 
-            status_code=response.status_code
+            handler=request.url.path,
+            status=response.status_code
         ).inc()
         
         HTTP_REQUEST_DURATION_SECONDS.labels(
             method=request.method, 
-            endpoint=request.url.path
+            handler=request.url.path
         ).observe(duration)
         
         logger.info(
