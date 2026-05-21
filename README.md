@@ -358,25 +358,120 @@ durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır.
 
 Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder 🚀
 
-## 📊 Adım 6: Observability ve Grafana (Monitoring)
+# 📊 Adım 6: Observability ve Grafana Monitoring
 
-Uygulamanın performansını, anlık istek sayılarını (RPS), hata oranlarını ve gecikme sürelerini (Latency) canlı izlemek ve kritik durumlarda alarm üretebilmek adına sisteme tam otomatik bir **Observability (İzlenebilirlik)** katmanı entegre edilmiştir.
+Uygulamanın:
 
-### 🧠 Mimari Kararlar (ADR & Best Practices)
-* **Decoupled CRD Infrastructure:** CI/CD pipeline'ımızın monitoring motorlarına bağımlı olmadan kesintisiz çalışabilmesi için, Prometheus CRD'leri (Custom Resource Definitions) Terraform/Cloud-Init katmanında sunucu ayağa kalkarken otomatik kurulmuştur. 
-* **Declarative GitOps (Helm Integration):** `servicemonitor.yaml` ve `alert-rule.yaml` (Alarm kuralı) dosyaları, uygulamadan bağımsız manuel yönetilmek yerine doğrudan `./insider-app/templates/` klasörüne gömülmüştür. CI/CD pipeline her tetiklendiğinde, izleme kuralları uygulamanın bulunduğu `insider-app` namespace'inden tetiklenir.
-* **Bellek Optimizasyonu:** Kapsamlı Prometheus stack'in `t3.small` (2GB RAM) üzerinde stabil çalışması ve bulut maliyetlerinin optimize edilmesi için sistem seviyesinde 4GB SWAP alanı devreye alınmıştır.
+- performansını
+- request throughput'unu (RPS)
+- hata oranlarını
+- response latency değerlerini
+- Kubernetes cluster metriklerini
 
-### 🛠️ Grafana ve Prometheus'un Kurulumu
-Altyapı (Namespace ve CRD'ler) Cloud-Init tarafından halihazırda hazırlandığı için, bu aşamada yalnızca monitoring motorlarını (Grafana ve Prometheus) ayağa kaldırıyoruz. 
+canlı izlemek amacıyla sisteme tam entegre bir observability katmanı eklenmiştir.
 
-Sunucuya SSH ile bağlanıp şu komutları çalıştırın:
+Monitoring stack aşağıdaki bileşenlerden oluşmaktadır:
+
+- Prometheus
+- Grafana
+- kube-state-metrics
+- node-exporter
+- Alerting CRD'leri
+
+---
+
+## 🛠️ 1️⃣ Prometheus & Grafana Kurulumu
+
+Namespace ve Prometheus CRD'leri Cloud-Init sırasında otomatik hazırlandığı için bu aşamada yalnızca monitoring stack deploy edilir.
+
+EC2 sunucusuna SSH ile bağlandıktan sonra aşağıdaki komutları çalıştırın:
 
 ```bash
-# Kube-Prometheus-Stack (Grafana dahil) kurulumu
-helm repo add prometheus-community [https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
 helm repo update
-helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring
+
+helm upgrade --install prometheus-stack \
+  prometheus-community/kube-prometheus-stack \
+  --namespace monitoring
+```
+
+Kurulum tamamlandıktan sonra Prometheus, Grafana ve exporter servisleri `monitoring` namespace'i altında ayağa kalkacaktır.
+
+---
+
+## 🌐 2️⃣ Grafana Arayüzüne Erişim
+
+Grafana servisine erişmek için port-forward işlemi başlatın:
+
+```bash
+kubectl port-forward -n monitoring svc/prometheus-stack-grafana 30000:80 --address 0.0.0.0
+```
+
+Daha sonra tarayıcıdan erişin:
+
+```text
+http://<AWS_ELASTIC_IP>:30000
+```
+
+---
+
+## 🔑 3️⃣ Grafana Login Bilgileri
+
+### Kullanıcı Adı
+
+```text
+admin
+```
+
+### Şifreyi Öğrenme
+
+Grafana admin şifresini almak için:
+
+```bash
+kubectl get secret \
+  --namespace monitoring \
+  prometheus-stack-grafana \
+  -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+```
+
+---
+
+## 📈 4️⃣ FastAPI Metrics Dashboard Import
+
+Grafana arayüzüne giriş yaptıktan sonra aşağıdaki dashboard ID'lerinden birini import ederek FastAPI uygulama metriklerini canlı izleyebilirsiniz.
+
+### Önerilen Dashboard ID'leri
+
+| Dashboard | ID |
+|---|---|
+| FastAPI Observability | `16110` |
+| FastAPI Full Observability | `25040` |
+
+Grafana üzerinden:
+
+```text
+Dashboards → Import → Dashboard ID
+```
+
+adımlarını izleyerek dashboard'u ekleyebilirsiniz.
+
+---
+
+## 📊 5️⃣ İzlenebilen Metrikler
+
+Grafana dashboard'ları üzerinden aşağıdaki metrikler canlı izlenebilir:
+
+- HTTP request rate (RPS)
+- Request latency
+- Error rate
+- Status code dağılımı
+- Endpoint bazlı trafik
+- CPU / Memory kullanımı
+- Kubernetes pod sağlık durumu
+- Node kaynak tüketimi
+
+Bu observability katmanı sayesinde sistem davranışı gerçek zamanlı olarak analiz edilebilir hale gelir 🚀
 
 
 ---
