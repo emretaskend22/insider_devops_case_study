@@ -358,24 +358,25 @@ durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır.
 
 Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder 🚀
 
-## 📊 Adım 6: Observability ve Otomatik Metrik Hattı (Day 4)
+## 📊 Adım 6: Observability ve Grafana (Monitoring)
 
 Uygulamanın performansını, anlık istek sayılarını (RPS), hata oranlarını ve gecikme sürelerini (Latency) canlı izlemek ve kritik durumlarda alarm üretebilmek adına sisteme tam otomatik bir **Observability (İzlenebilirlik)** katmanı entegre edilmiştir.
 
 ### 🧠 Mimari Kararlar (ADR & Best Practices)
-* **Bellek Optimizasyonu (Swap):** Prometheus stack'in `t3.small` (2GB RAM) üzerinde stabil çalışması için 4GB SWAP alanı devreye alınmış, bulut maliyetleri Free Tier sınırında tutulmuştur.
-* **Declarative GitOps (Helm Templates Integration):** `servicemonitor.yaml` ve `alert-rule.yaml` (Alarm kuralı) dosyaları, uygulamadan bağımsız manuel yönetilmek yerine doğrudan `./insider-app/templates/` klasörüne dahil edilmiştir. Bu sayede CI/CD pipeline her tetiklendiğinde izleme ve alarm mekanizmaları uygulama ile birlikte **tam otomatik (zero-touch)** olarak deploy edilir.
+* **Decoupled CRD Infrastructure:** CI/CD pipeline'ımızın monitoring motorlarına bağımlı olmadan kesintisiz çalışabilmesi için, Prometheus CRD'leri (Custom Resource Definitions) Terraform/Cloud-Init katmanında sunucu ayağa kalkarken otomatik kurulmuştur. 
+* **Declarative GitOps (Helm Integration):** `servicemonitor.yaml` ve `alert-rule.yaml` (Alarm kuralı) dosyaları, uygulamadan bağımsız manuel yönetilmek yerine doğrudan `./insider-app/templates/` klasörüne gömülmüştür. CI/CD pipeline her tetiklendiğinde, izleme kuralları uygulamanın bulunduğu `insider-app` namespace'inden tetiklenir.
+* **Bellek Optimizasyonu:** Kapsamlı Prometheus stack'in `t3.small` (2GB RAM) üzerinde stabil çalışması ve bulut maliyetlerinin optimize edilmesi için sistem seviyesinde 4GB SWAP alanı devreye alınmıştır.
 
-### 🛠️ Altyapı Hazırlığı (Sunucuda Bir Kez Çalıştırılır)
-Monitoring core bileşenlerini (Prometheus ve Grafana) ayağa kaldırmak için sunucu içerisinde şu komutlar koşturulur:
+### 🛠️ Grafana ve Prometheus'un Kurulumu
+Altyapı (Namespace ve CRD'ler) Cloud-Init tarafından halihazırda hazırlandığı için, bu aşamada yalnızca monitoring motorlarını (Grafana ve Prometheus) ayağa kaldırıyoruz. 
+
+Sunucuya SSH ile bağlanıp şu komutları çalıştırın:
+
 ```bash
-# Monitoring için izole namespace oluşturulması
-kubectl create namespace monitoring
-
-# Kube-Prometheus-Stack Helm deposunun eklenmesi ve kurulumu
+# Kube-Prometheus-Stack (Grafana dahil) kurulumu
 helm repo add prometheus-community [https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)
 helm repo update
-helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack -n monitoring
+helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring
 
 
 ---
