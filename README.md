@@ -229,52 +229,134 @@ Başarılı sonuç:
 
 Bu çıktıyı görüyorsanız sistem tamamen canlıdır 🚀
 
-## 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
- 
-`main` branch'ine yapılan her push ve merge işleminde; test, güvenlik taraması (Trivy, GitLeaks, Ruff) ve AWS sunucusuna sıfır kesintiyle (Zero-Downtime Rolling Update) otomatik dağıtım yapılır.
- 
-### 🔐 1. Güvenlik ve Sır İzolasyonu (Bootstrap)
- 
-Siber güvenlik standartları gereği GHCR token'ı SSH tüneli üzerinden cleartext olarak taşınmaz. Bunun yerine Kubernetes'e image pull yetkisi **bir kez manuel olarak** tanımlanır:
- 
+# 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
+
+`main` branch'ine yapılan her push ve merge işleminde;
+
+- Test
+- Lint
+- Secret scanning
+- Container vulnerability scanning
+- Docker image build & publish
+- AWS sunucusuna otomatik deployment
+
+işlemleri tamamen otomatik olarak gerçekleştirilir.
+
+Pipeline, Kubernetes Rolling Update mekanizması sayesinde uygulamayı **Zero-Downtime** ile günceller.
+
+---
+
+## 🔐 1️⃣ Güvenlik ve Secret İzolasyonu (Bootstrap)
+
+Güvenlik standartları gereği GHCR token'ı SSH üzerinden cleartext olarak taşınmaz.
+
+Bunun yerine Kubernetes cluster'ına image pull yetkisi yalnızca bir kez manuel olarak tanımlanır.
+
+Aşağıdaki secret, uygulamanın çalıştığı `insider-app` namespace'ine oluşturulur:
+
 ```bash
 kubectl create secret docker-registry ghcr-secret \
+  --namespace insider-app \
   --docker-server=ghcr.io \
   --docker-username="<YOUR_GITHUB_USERNAME>" \
   --docker-password="<YOUR_GITHUB_PAT>" \
   --docker-email="<YOUR_GITHUB_EMAIL>"
 ```
- 
-> 🔒 Bu secret cluster hafızasına güvenli şekilde gömüldükten sonra pipeline hiçbir hassas bilgi taşımaz.
- 
-### ⚙️ 2. GitHub Secrets Kurulumu
- 
-Reponuzun **Settings → Secrets and variables → Actions** sayfasına giderek şu 5 parametreyi tanımlayın:
- 
-| Secret Key | Açıklama | Nereden Alınır? |
-|---|---|---|
-| `AWS_ROLE_ARN` | GitHub Actions OIDC Rolü | Terraform çıktısı |
-| `EC2_SG_ID` | AWS Security Group ID | Terraform çıktısı veya AWS Console |
-| `EC2_HOST` | Sunucunun Public IP Adresi | Terraform çıktısı (`public_ip`) |
-| `EC2_USERNAME` | Sunucu kullanıcı adı | `ubuntu` |
-| `EC2_SSH_KEY` | SSH Private Key | `.pem` dosyasının tüm içeriği |
- 
-### 🚀 3. Otomatik Dağıtım ve Zero-Downtime Testi
- 
-`main`'e PR merge'leyin. Pipeline şu zinciri otomatik çalıştırır:
- 
-1. **Linter & Secrets Scan** — Ruff kod kalitesini, GitLeaks sır sızıntısını denetler
-2. **Docker Build & Trivy Scan** — İmaj derlenir, Trivy CRITICAL/HIGH açık tarar, temiz imaj GHCR'a push'lanır
-3. **Dynamic IP Whitelisting** — Runner'ın anlık IP'si bulunur, Security Group'a sadece o saniye SSH izni eklenir
-4. **Automated Rolling Update** — Helm Chart `values-prod.yaml` ile güncellenir, yeni pod'lar ayağa kalkar
-5. **Dynamic Firewall Revoke** — Dağıtım başarılı olsa da olmasa da (`if: always()`) kapı anında kilitlenir
-Pod'ların canlı durumunu izlemek için:
- 
-```bash
-kubectl get pods -w
+
+Bu işlem sonrasında Kubernetes cluster'ı GHCR'dan private image çekebilir hale gelir.
+
+🔒 Secret cluster içinde güvenli şekilde saklandığı için CI/CD pipeline deployment sırasında hassas credential taşımaz.
+
+---
+
+## ⚙️ 2️⃣ GitHub Actions Secrets Kurulumu
+
+Repository içerisinde aşağıdaki path'e gidin:
+
+```text
+Settings → Secrets and variables → Actions
 ```
- 
-Yeni pod'lar `1/1 Running` olduğu saniye eski pod'lar sıfır kesintiyle temizlenir.
+
+Aşağıdaki secret'ları tanımlayın:
+
+| Secret Key | Açıklama |
+|---|---|
+| `AWS_ROLE_ARN` | GitHub Actions OIDC IAM Role ARN |
+| `EC2_SG_ID` | EC2 instance Security Group ID |
+| `EC2_HOST` | EC2 Public IP adresi |
+| `EC2_USERNAME` | SSH kullanıcı adı (`ubuntu`) |
+| `EC2_SSH_KEY` | `.pem` private key içeriği |
+
+---
+
+## 🚀 3️⃣ Otomatik Deployment Süreci
+
+`main` branch'ine yapılan her merge/push işleminde pipeline otomatik olarak aşağıdaki aşamaları çalıştırır:
+
+### 🧪 Lint & Secret Scanning
+
+- Ruff ile Python lint kontrolü yapılır
+- GitLeaks ile secret sızıntısı taranır
+
+---
+
+### 🛡️ Docker Build & Vulnerability Scanning
+
+- Docker image build edilir
+- Trivy ile `CRITICAL` ve `HIGH` severity vulnerability taraması yapılır
+- Güvenli image GHCR'a push edilir
+
+---
+
+### 🔐 Dynamic IP Whitelisting
+
+GitHub Actions runner'ın anlık public IP adresi otomatik tespit edilir.
+
+Sadece deployment süresi boyunca EC2 Security Group'a geçici SSH erişimi açılır.
+
+Bu yaklaşım:
+
+- permanent SSH exposure oluşmasını engeller
+- attack surface'i minimize eder
+- zero-trust yaklaşımına daha uygundur
+
+---
+
+### ☸️ Automated Kubernetes Rolling Update
+
+Pipeline EC2 sunucusuna bağlanır ve Helm deployment'ını günceller.
+
+Yeni pod'lar `insider-app` namespace'inde ayağa kalkarken eski pod'lar Kubernetes Rolling Update stratejisiyle sıfır kesintiyle kaldırılır.
+
+---
+
+### 🔒 Automatic Firewall Revoke
+
+Deployment başarılı olsa da başarısız olsa da (`if: always()`):
+
+- geçici SSH erişimi otomatik kaldırılır
+- Security Group eski haline döndürülür
+
+---
+
+## 📊 4️⃣ Rolling Update Sürecini İzleme
+
+Deployment sırasında pod geçişlerini canlı izlemek için:
+
+```bash
+kubectl get pods -n insider-app -w
+```
+
+Yeni pod'lar:
+
+```text
+READY   STATUS
+1/1     Running
+```
+
+durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır.
+
+Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder 🚀
 
 ## 📊 Adım 6: Observability ve Otomatik Metrik Hattı (Day 4)
 
