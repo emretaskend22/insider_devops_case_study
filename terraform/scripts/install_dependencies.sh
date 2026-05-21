@@ -41,6 +41,7 @@ sudo -i -u ubuntu sg docker -c "minikube start --driver=docker --memory=1800mb -
 sudo -i -u ubuntu sg docker -c "minikube addons enable metrics-server"
 
 echo "=== 7. Creating Necessary Namespaces (Infrastructure Preparation) ==="
+sudo -i -u ubuntu sg docker -c "minikube kubectl -- create namespace insider-app --dry-run=client -o yaml | minikube kubectl -- apply -f -"
 sudo -i -u ubuntu sg docker -c "minikube kubectl -- create namespace monitoring --dry-run=client -o yaml | minikube kubectl -- apply -f -"
 
 echo "=== 7.5. Installing Prometheus CRDs (Infrastructure Level) ==="

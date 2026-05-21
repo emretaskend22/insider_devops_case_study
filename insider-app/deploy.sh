@@ -14,10 +14,10 @@ echo "📦 2. Uygulama imajı Minikube içinde lokal olarak build ediliyor..."
 docker build -t insider-app:local -f ./app/Dockerfile .
 
 echo "🚀 3. Uygulama values-dev.yaml ayarlarıyla Kubernetes'e kuruluyor..."
-helm upgrade --install insider-dev ./insider-app -f insider-app/values-dev.yaml --namespace monitoring
+helm upgrade --install insider-dev ./insider-app -f insider-app/values-dev.yaml --namespace insider-app
 
 echo "📊 4. Dağıtım durumu kontrol ediliyor..."
-helm status insider-dev --namespace monitoring
+helm status insider-dev --namespace insider-app
 
 echo "=== 🎯 Uygulama Dağıtımı Başarıyla Tamamlandı! ==="
 echo "🌐 Canlı Adres: http://<AWS_ELASTIC_IP>:30080/healthz"
