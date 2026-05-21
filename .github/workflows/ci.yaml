@@ -141,13 +141,18 @@ jobs:
           script: |
             export KUBECONFIG=$HOME/.kube/config
             cd ~/insider_devops_case_study
-            git checkout main && git pull origin main
+            
+            # Local değişiklikleri yoksay ve GitHub'daki en güncel haliyle zorla eşitle
+            git fetch origin
+            git reset --hard origin/main
 
+            # Helm kurulumu (Tüm satırların sonunda \ olduğuna dikkat et)
             helm upgrade --install insider-dev ./insider-app \
               -f insider-app/values-prod.yaml \
               --set image.repository=ghcr.io/${{ github.repository }} \
               --set image.tag=${{ github.sha }} \
-              --set image.pullPolicy=Always
+              --set image.pullPolicy=Always \
+              --namespace insider-app
 
       # 5. 🔒 BÜYÜK FİNAL: İşimiz bitti, kapıyı hemen arkamızdan kilitliyoruz (IP'yi siliyoruz!)
       - name: "🔒 Revoke GitHub Runner IP from Security Group"
