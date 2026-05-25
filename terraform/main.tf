@@ -67,8 +67,6 @@ resource "aws_security_group" "insider_sg" {
   }
 }
 
-# 4. Sunucunun kendisine (EC2) bağlanabilmek için bir SSH Key Pair oluşturmamız lazım.
-# Bunu AWS Console'dan manuel oluşturup ismini aşağıya yazacağız.
 
 # 5. EC2 Sanal Sunucu Tanımı 
 resource "aws_instance" "insider_server" {
@@ -76,7 +74,7 @@ resource "aws_instance" "insider_server" {
   instance_type          = var.instance_type
   subnet_id              = data.aws_subnets.default.ids[0]
   vpc_security_group_ids = [aws_security_group.insider_sg.id]
-  key_name               = "insider-case-key"
+  key_name               = var.key_name
   source_dest_check      = false
   
   # Makine açılır açılmaz scripti otomatik çalıştırır.
@@ -132,8 +130,7 @@ resource "aws_iam_role" "github_actions_oidc_role" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            # 🌟 Sadece senin GitHub reponun bu rolü üstlenmesine izin veriyoruz!
-            "token.actions.githubusercontent.com:sub" = "repo:emretaskend22/insider_devops_case_study:*"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
           }
         }
       }

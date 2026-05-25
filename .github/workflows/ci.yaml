@@ -7,9 +7,9 @@ on:
     branches: [ "main" ]
 
 permissions:
-  id-token: write      # AWS OIDC için JWT token üretme izni 
+  id-token: write      
   contents: read       
-  packages: write      # GitHub Container Registry (GHCR) için push izni
+  packages: write      
 
 jobs:
   security-and-quality:
@@ -73,7 +73,7 @@ jobs:
           docker build -f app/Dockerfile -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
           docker tag ghcr.io/${{ github.repository }}:${{ github.sha }} ghcr.io/${{ github.repository }}:latest
 
-      # Trivy action pin'lendi — master kullanmak supply chain riski
+      
       - name: "🛡️ Run Trivy Vulnerability Scanner"
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -83,13 +83,13 @@ jobs:
           exit-code: '1'
           trivyignore-file: '.trivyignore'
 
-      # Trivy geçtikten sonra push
+      
       - name: "🚀 Push Image to GHCR"
         run: |
           docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
           docker push ghcr.io/${{ github.repository }}:latest
       
-      # 📋 BONUS CASE: Syft ile SBOM (Software Bill of Materials) Üretimi
+      
       - name: "📋 Generate SBOM with Syft"
         uses: anchore/sbom-action@v0.18.0
         with:
@@ -107,7 +107,7 @@ jobs:
       - name: "🗂️ Checkout Repository"
         uses: actions/checkout@v4
 
-      # 1. AWS OIDC ile geçici yetki alıyoruz
+      
       - name: "🔑 Configure AWS Credentials via OIDC"
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -115,14 +115,14 @@ jobs:
           aws-region: eu-central-1
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-      # 2. 🕵️‍♂️ GitHub Runner'ın o anki public IP'sini buluyoruz
+      
       - name: "🌐 Get GitHub Actions Runner Public IP"
         id: ip
         run: |
           RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
           echo "runner_ip=${RUNNER_IP}" >> $GITHUB_OUTPUT
 
-      # 3. 🔓 AWS CLI ile Security Group'a sadece bu IP için geçici SSH (22) izni ekliyoruz
+      
       - name: "🔓 Whitelist GitHub Runner IP in Security Group"
         run: |
           aws ec2 authorize-security-group-ingress \
@@ -131,7 +131,7 @@ jobs:
             --port 22 \
             --cidr ${{ steps.ip.outputs.runner_ip }}/32
 
-      # 4. 🌐 SSH & Helm ile güvenli içeride dağıtımı yapıyoruz
+      
       - name: "🌐 Deploy to EC2 Minikube via SSH & Helm"
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -154,9 +154,9 @@ jobs:
               --set image.pullPolicy=Always \
               --namespace insider-app
 
-      # 5. 🔒 BÜYÜK FİNAL: İşimiz bitti, kapıyı hemen arkamızdan kilitliyoruz (IP'yi siliyoruz!)
+     
       - name: "🔒 Revoke GitHub Runner IP from Security Group"
-        if: always() # Dağıtım patlasa bile bu adım MUTLAKA çalışıp kapıyı kapatacak!
+        if: always() 
         run: |
           aws ec2 revoke-security-group-ingress \
             --group-id ${{ secrets.EC2_SG_ID }} \

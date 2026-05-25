@@ -14,6 +14,12 @@ variable "my_ip" {
 }
 
 variable "key_name" {
+  description = "Name of the SSH key pair in AWS"
   type        = string
-  description = "The name of the AWS SSH key pair to access the EC2 instance"
+}
+
+variable "github_repo" {
+  description = "GitHub repository path for OIDC (e.g., username/repo-name)"
+  type        = string
+  default     = "emretaskend22/insider_devops_case_study" 
 }
