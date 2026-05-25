@@ -1,9 +1,7 @@
 environment: "production"
 
-# 2.2 High Availability: Canlı ortamda yüksek erişilebilirlik için minimum 3 pod ile başlıyoruz. Bu, tek bir pod'un arızalanması durumunda bile uygulamanın çalışmaya devam etmesini sağlar.
 replicaCount: 3
 
-# 🚀 Canlı ortam imaj politikası 
 image:
   repository: emretaskend/insider-app 
   tag: latest 
@@ -12,22 +10,21 @@ image:
 service:
   type: NodePort
   port: 8080
+  nodePort: 30080   # 🚨 EKLENDİ: EC2 iptables yönlendirmesi için şart!
 
-# 2.3 Resources: Ani trafik yüklerini için kaynak sınırlarını Vertical optimize ettik
 resources:
   limits:
-    cpu: 500m        # Yarım çekirdek (Max çıkabileceği seviye)
-    memory: 512Mi    # 512 MB RAM (Max çıkabileceği seviye)
+    cpu: 500m
+    memory: 512Mi
   requests:
-    cpu: 200m        # Kümden garanti olarak istediği işlemci gücü
-    memory: 256Mi    # Kümeden garanti olarak istediği RAM
+    cpu: 200m
+    memory: 256Mi
 
-# 2.5 Production-Ready Autoscaling Configuration (HPA)
 hpa:
   enabled: true
   minReplicas: 3      
-  maxReplicas: 10     # Ani trafik artışında yatayda Horizontal 10 poda kadar genişler
-  targetCPU: 75       # CPU kullanımı %75'i geçtiğinde yeni pod eklenir
+  maxReplicas: 5      # 🚨 DÜZELTİLDİ: t3.small CPU kapasitesini aşmamak için 5 ile sınırlandırıldı
+  targetCPU: 75
 
 serviceMonitor:
   enabled: true

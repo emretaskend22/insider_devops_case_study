@@ -16,6 +16,73 @@ Sistem, AWS Free Tier sınırları içerisinde (`t3.small`) Kubernetes (Minikube
 * **CI/CD:** GitHub Actions (OIDC, Dynamic IP Whitelisting, Trivy)
 * **Observability:** Prometheus, Grafana, Alertmanager
 
+## 🎯 Proje Vurguları (Case Study Highlights)
+
+Mülakat isterleri doğrultusunda sistemde alınan temel mühendislik kararları şunlardır:
+
+### 🌍 Ortam Yönetimi (Dev vs. Prod)
+Helm `values` dosyaları kullanılarak ortamlar arası operasyonel ve finansal sınırlar net olarak çizilmiştir:
+* **Development (`values-dev.yaml`):** Maliyet tasarrufu odaklıdır. Tek pod (`replicaCount: 1`), minimum kaynak tüketimi (100m CPU) ve lokal imaj stratejisiyle çalışır.
+* **Production (`values-prod.yaml`):** Yüksek erişilebilirlik (HA) odaklıdır. Minimum 3 pod ile başlar, AWS `t3.small` kısıtları gözetilerek yatayda güvenle ölçeklenir (HPA max: 5) ve sistemin çökmesini engellemek için dikey CPU/RAM tavan limitleri (512Mi) uygulanır.
+
+### 🛡️ Sağlık Kontrolleri (Probes) ve Kaynak Yönetimi
+Sistemin kendi kendini iyileştirebilmesi (Self-healing) ve kısıtlı donanım kaynaklarının verimli kullanılabilmesi için şu yapılandırmalar kurgulanmıştır:
+* **Probes:** Kubernetes'in uygulama durumunu takip edebilmesi için `livenessProbe` ve `readinessProbe` mekanizmaları FastAPI'nin `/healthz` endpoint'ine bağlanmıştır. Böylece kilitlenen pod'lar otomatik olarak yeniden başlatılır ve tam hazır olmayan pod'lara sıfır kesinti (Zero-Downtime) prensibiyle trafik gönderilmez.
+* **Resources:** AWS `t3.small` (2 vCPU, 2GB RAM) sunucusunun fiziksel kapasitesi ve içeride koşan Prometheus/Grafana gibi monitoring araçlarının taban yükleri hesaplanmıştır. Uygulamanın tüm belleği yutup sunucuyu kilitlemesini (Resource Starvation) engellemek adına, prod ortamında pod başına garanti edilen bellek (requests) `256Mi`, tavan limit (limits) ise katı bir şekilde `512Mi` olarak sınırlandırılmıştır.
+
+### 🔄 Rollout & Rollback (Sıfır Kesinti ve Felaket Kurtarma)
+Sistemin hatalı dağıtımlara karşı dayanıklılığı test edilmiştir. Kasıtlı olarak hatalı bir imaj (`v9.9.9`) deploy edildiğinde, Kubernetes'in rollout mekanizması devreye girerek yeni podların trafiğe açılmasını engellemiş ve eski podları `Running` durumunda tutarak kesintiyi (downtime) önlemiştir. Ardından `helm rollback` komutu ile sistem saniyeler içinde önceki kararlı sürümüne döndürülmüştür.
+
+![Rollout and Rollback Proof](docs/rollout_rollback_proof.png)
+
+### 📈 Otomatik Yatay Ölçeklendirme (Horizontal Pod Autoscaler - HPA)
+Bonus (2.5) doğrultusunda, ani trafik dalgalanmalarını dinamik olarak göğüsleyebilmek ve kaynak israfını önlemek adına **HPA** mekanizması tercih edilmiş ve devreye alınmıştır:
+* **Seçim Nedeni ve Mimari Uyum:** AWS `t3.small` sunucumuzun kısıtlı kaynakları (2 vCPU) bulunduğundan, sunucuyu sürekli yüksek replikalarla meşgul etmek yerine yük durumuna göre ölçeklenen esnek bir yapı kurulmuştur.
+* **Çalışma Prensibi:** Pod'ların ortalama CPU tüketimi %75'i geçtiği anda HPA otomatik olarak tetiklenir ve canlı ortamda pod sayısını kademeli olarak 5'e kadar (`maxReplicas: 5`) yükseltir. Trafik azaldığında ise kaynakları kümete geri iade etmek için pod sayısını tekrar taban seviye olan 3'e düşürür.
+
+### 🚀 Güvenlik Odaklı Sürekli Entegrasyon (CI Pipeline)
+`.github/workflows/` altında kurgulanan CI akışı, her push ve PR tetiklenmesinde sıfır toleranslı bir güvenlik ve kalite süzgeci işletir:
+* **Akış Sıralaması:** Kod kalitesi için `Lint` ve `Test` adımlarının ardından, Multi-stage mimaride Docker imajı build edilir.
+* **Trivy ile Güvenlik Bariyeri:** İmaj GHCR'a (GitHub Container Registry) basılmadan önce **Trivy** taramasından geçirilir. Eğer imaj içinde `CRITICAL` veya `HIGH` seviyede bir zafiyet (Vulnerability) tespit edilirse pipeline otomatik olarak kırılır ve güvenli olmayan imajın sunucuya yayılması (artifact poisoning) engellenir.
+
+### 🔐 Güvenlik ve Kimlik Doğrulama (OIDC & Secret Scanning)
+Projede "Sıfır Güven" (Zero-Trust) ve "Sıfır Kalıcı Anahtar" politikası benimsenerek endüstri standardı güvenlik mekanizmaları kurgulanmıştır:
+* **AWS OIDC Federation (Şifresiz Bağlantı):** GitHub Actions'ın AWS kaynaklarına erişmesi için statik, çalınma riski olan uzun ömürlü `Access Key` veya `Secret Key` tanımları kullanılmamıştır. Terraform ile AWS ve GitHub arasında **OIDC Federation** kurulmuştur. GitHub Actions, AWS IAM Role'ü geçici ve dinamik token'lar üzerinden üstlenerek (AssumeRoleWithWebIdentity) işlemlerini tamamen şifresiz ve güvenli bir şekilde yürütür.
+* **Gitleaks ve Gizli Veri Koruması:** Proje geliştirme süreçlerinde kod blokları arasına, konfigürasyon dosyalarına veya manifestolara yanlışlıkla şifre, token veya hassas veri (credential) sızdırılmasını engellemek adına pipeline üzerinde gizli veri taraması (Secret Scanning) işletilmektedir. Repo içerisinde hiçbir gerçek credential barındırılmamaktadır.
+
+### 🚀 Otomatik Dağıtım Stratejisi (Continuous Deployment & Trade-offs)
+`main` branch'ine yapılan her başarılı merge sonrasında, AWS üzerindeki Kubernetes kümesine (Minikube) dağıtım tamamen otomatik olarak gerçekleşmektedir:
+* **Tercih Edilen Yöntem (Pipeline-Driven CD):** GitHub Actions üzerinde `helm upgrade --install` komutunu otomatize eden Push-Based bir dağıtım mimarisi tercih edilmiştir. Yeni imaj basıldıktan sonra pipeline küme ile güvenli el sıkışarak dağıtımı tetikler.
+* **Mimari Karar ve GitOps (ArgoCD) Trade-off Analizi:** Proje isterlerinde sunulan GitOps (ArgoCD/Flux) yaklaşımı bilinçli olarak bu aşamada **tercih edilmemiştir**. Bunun en kritik nedeni, projenin üzerinde koştuğu **AWS `t3.small` (2GB RAM)** sunucusunun donanımsal kısıtlarıdır. ArgoCD gibi bir GitOps aracının küme içinde yaratacağı kalıcı bellek (RAM) ve CPU yükü, mevcut kısıtlı kaynakları tüketerek uygulamanın ve izleme araçlarının (Prometheus/Grafana) kararlılığını riske atacaktır. GitHub Actions tabanlı hafif (lightweight) yöntem seçilerek sunucu kaynakları tamamen uygulamanın kararlılığına ayrılmıştır.
+
+
+### 📋 Tedarik Zinciri Güvenliği (SBOM - Software Bill of Materials)
+Bonus (3.5) kapsamında, projenin DevSecOps olgunluğunu artırmak amacıyla **Tedarik Zinciri Güvenliği (Supply Chain Security)** adımı eklenmiştir:
+* **Syft ile Envanter Çıkarımı:** CI pipeline'ının imaj derleme ve güvenlik taraması aşamalarından hemen sonra, Anchore Syft aracı kullanılarak uygulamanın tüm bağımlılık envanterini barındıran bir SBOM (`sbom.json`) üretilir.
+* **Şeffaflık ve Denetlenebilirlik:** Üretilen bu dosya, GitHub Actions üzerinde bir *artifact* olarak saklanır. Bu sayede, gelecekte ortaya çıkabilecek olası zafiyetlerde (Zero-day vulnerabilities), imajın içinde hangi kütüphanelerin ve versiyonların koştuğu saniyeler içinde denetlenebilir hale getirilmiştir.
+
+### 📊 Gözlemlenebilirlik (Observability - Logs & Metrics)
+Sistemin kör uçuşu yapmasını engellemek ve canlı ortamda hata tespitini saniyelere indirmek için uygulama katmanı baştan aşağı enstrümente edilmiştir:
+* **Yapılandırılmış Loglama (JSON):** FastAPI uygulaması, logları standart metin yerine `timestamp`, `level`, `msg` ve `request_id` barındıran JSON formatında basacak şekilde yapılandırılmıştır. Bu sayede merkezi log yönetim sistemleriyle (ELK, Loki) %100 uyumluluk sağlanmıştır.
+* **Prometheus Metrikleri:** Uygulamaya entegre edilen `/metrics` endpoint'i üzerinden anlık HTTP istek sayıları (RPS), yanıt süreleri (Latency) ve hata oranları Prometheus formatında dışa aktarılmaktadır.
+
+### 👁️ Merkezi İzleme ve Alarmlar (Prometheus & Grafana)
+Küme düzeyinde proaktif bir izleme (monitoring) mimarisi kurgulanmıştır:
+* **Kube-Prometheus-Stack:** Minikube üzerine kurulan bu stack ile sistemin CPU/Memory ve ağ metrikleri merkezi olarak toplanmaktadır. `ServiceMonitor` objesi ile uygulama metrikleri otomatik olarak keşfedilir.
+* **Grafana Dashboard ve Alerting:** Sistemin anlık sağlığını (RPS, Latency, Hata Oranları) tek bir ekranda gösteren özelleştirilmiş bir Grafana paneli hazırlanmıştır. Ayrıca, API hata oranının (5xx) %5'i aşması durumunda sistem yöneticilerini uyaracak `PrometheusRule` alarm tanımlamaları yapılmıştır.
+
+#### 📈 Gözlemlenebilirlik Kanıtları (Metrics & Alerts Proof)
+
+**Canlı Uygulama Metrik Paneli (RPS & Latency):**
+![Grafana Dashboard](docs/grafana_dashboard.png)
+
+**Aktif ve Tanımlı Alarm Kuralı (HighErrorRate > %5):**
+![Prometheus Alert Rule](docs/alert_rule.png)
+
+### 🏗️ Kod Olarak Altyapı (Terraform - IaC)
+AWS üzerindeki tüm temel altyapı (Track A) konsol üzerinden manuel olarak değil, tekrar edilebilir ve sürümlendirilebilir bir şekilde **Terraform** kullanılarak kodla inşa edilmiştir:
+* Projenin omurgasını oluşturan EC2 (`t3.small`) sunucusu, ağa açık ve sabit erişim sağlayan Elastic IP (EIP) ve sadece belirli IP'lere (GitHub Actions Runner vb.) geçici kapı açan dinamik Security Group konfigürasyonları tamamen Terraform state'i üzerinden yönetilmektedir.
+
 ---
 
 # 🚀 INSIDER DEVOPS CASE STUDY - HOW TO RUN
