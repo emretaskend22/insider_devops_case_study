@@ -1,20 +1,20 @@
-# ADR-0001: Use Helm Charts for Kubernetes Deployment and Configuration Management
+# ADR-0001: Kubernetes Dağıtımı ve Konfigürasyon Yönetimi İçin Helm Chart Kullanımı
 
-## Status
-Accepted
+## Durum (Status)
+Kabul Edildi
 
-## Context
-Managing raw Kubernetes manifests (`deployment.yaml`, `service.yaml`, `ingress.yaml`) for multiple application environments introduces significant maintenance overhead, duplication of configuration code, and a high risk of configuration drift. For this case study, the stateless Python FastAPI application must be deployed across two distinct environments: a lightweight, cost-aware Development environment and a high-availability, heavily monitored Production environment running on an AWS `t3.small` instance. Using raw static manifests would make managing environment-specific configurations (such as replica counts, horizontal pod autoscaling rules, resource limits, and monitoring parameters) highly error-prone.
+## Bağlam (Context)
+Birden fazla uygulama ortamı için ham Kubernetes manifestolarını (`deployment.yaml`, `service.yaml`, `ingress.yaml`) yönetmek; ciddi bir bakım yükü, konfigürasyon kodu tekrarı ve konfigürasyon sapması (configuration drift) riski doğurur. Bu case study için, durumsuz (stateless) Python FastAPI uygulamasının iki farklı ortamda dağıtılması gerekmektedir: hafif ve maliyet odaklı bir Geliştirme (Development) ortamı ile AWS `t3.small` sunucusunda koşan, yüksek erişilebilirliğe (HA) sahip ve sıkı izlenen bir Canlı (Production) ortam. Ham ve statik manifestolar kullanmak; ortama özgü konfigürasyonları (replika sayıları, yatay ölçeklendirme kuralları, kaynak limitleri ve izleme parametreleri gibi) yönetmeyi son derece hataya açık hale getirecektir.
 
-## Decision
-We decided to adopt Helm as the primary package manager and template engine for managing all Kubernetes infrastructure and application deployments. 
+## Karar (Decision)
+Tüm Kubernetes altyapısını ve uygulama dağıtımlarını yönetmek için temel paket yöneticisi ve şablon motoru olarak Helm'i benimsemeye karar verdik. 
 
-Instead of writing static YAML manifests, we created a unified, parameterized Helm chart called `insider-app`. Environment separation is strictly enforced at the configuration level using dedicated values files:
-* `values-dev.yaml`: Configured for a single pod replica, strict localized image pulling (`pullPolicy: Never`), and tight resource allocations to optimize costs in the test environment.
-* `values-prod.yaml`: Configured for high availability (minimum 3 replicas), robust horizontal scaling (HPA up to 5 replicas aligned with `t3.small` constraints), higher vertical resource boundaries, and an active Prometheus `ServiceMonitor` for cluster metrics collection.
+Statik YAML manifestoları yazmak yerine, `insider-app` adında birleştirilmiş ve parametrik bir Helm chart oluşturduk. Ortam ayrımı, özel değerler (values) dosyaları kullanılarak konfigürasyon seviyesinde katı bir şekilde sağlanmıştır:
+* `values-dev.yaml`: Test ortamında maliyetleri optimize etmek için tek bir pod replikası, kesin lokal imaj çekme stratejisi (`pullPolicy: Never`) ve minimum düzeyde kaynak tahsisleriyle yapılandırılmıştır.
+* `values-prod.yaml`: Yüksek erişilebilirlik (minimum 3 replika), kararlı yatay ölçeklendirme (`t3.small` kısıtlarına uygun olarak 5 replikaya kadar HPA), daha yüksek dikey kaynak sınırları ve cluster metriklerini toplamak için aktif bir Prometheus `ServiceMonitor` içerecek şekilde yapılandırılmıştır.
 
-## Consequences
-* **(+) DRY Compliance (Don't Repeat Yourself):** A single Helm chart defines the underlying architectural template, completely eliminating duplicated Kubernetes resource declarations.
-* **(+) Atomic Upgrades and Rollbacks:** Deployments are executed via atomic operations (`helm upgrade --install`). If a failure occurs during a production rollout, the cluster state can be safely reverted instantly using `helm rollback`.
-* **(+) Configuration Flexibility:** Environment-specific settings are completely decoupled from core infrastructure code, enabling rapid, risk-free configuration modifications.
-* **(-) Added Complexity:** Introduces Helm syntax abstraction and template nesting dependencies, requiring developers to understand Helm chart structures rather than pure Kubernetes manifests.
+## Sonuçlar (Consequences)
+* **(+) DRY Prensibine Uyum (Don't Repeat Yourself):** Tek bir Helm chart'ı temel mimari şablonunu tanımlar ve Kubernetes kaynak bildirimlerindeki kod tekrarını tamamen ortadan kaldırır.
+* **(+) Atomik Güncellemeler ve Geri Dönüşler (Rollbacks):** Dağıtımlar atomik işlemlerle (`helm upgrade --install`) gerçekleştirilir. Canlıya alım sırasında bir hata oluşursa, cluster durumu `helm rollback` kullanılarak anında ve güvenli bir şekilde eski haline döndürülebilir.
+* **(+) Konfigürasyon Esnekliği:** Ortama özgü ayarlar, temel altyapı kodundan tamamen ayrıştırılmış olup, hızlı ve risksiz konfigürasyon değişikliklerine olanak tanır.
+* **(-) Artan Karmaşıklık:** Helm sözdizimi soyutlaması (syntax abstraction) ve iç içe geçmiş şablon bağımlılıkları getirir; bu da ekibin saf Kubernetes manifestoları yerine Helm chart yapılarını öğrenmesini ve anlamasını gerektirir.
