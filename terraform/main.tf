@@ -67,8 +67,6 @@ resource "aws_security_group" "insider_sg" {
   }
 }
 
-# 4. Sunucunun kendisine (EC2) bağlanabilmek için bir SSH Key Pair oluşturmamız lazım.
-# Bunu AWS Console'dan manuel oluşturup ismini aşağıya yazacağız.
 
 # 5. EC2 Sanal Sunucu Tanımı 
 resource "aws_instance" "insider_server" {

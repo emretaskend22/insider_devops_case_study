@@ -19,19 +19,18 @@ spec:
         - name: ghcr-secret
       containers:
         - name: {{ .Chart.Name }}
-          # v1, v2 tag'lerini ve imaj adını values'dan çeker
+          
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           
-          # Tıpkı .env gibi: Değişkenleri container içine enjekte ediyoruz kanka
+         
           env:
             - name: APP_PORT
               valueFrom:
                 configMapKeyRef:
                   name: {{ include "insider-app.fullname" . }}-config
                   key: APP_PORT
-            # ⚡ İŞTE ARIYOR OLDUĞUMUZ SİHİRLİ DOKUNUŞ BURASI!
-            # Pipeline'dan (--set image.tag ile) gelen Git Commit SHA'sını Python'ın okuyabilmesi için içeri üflüyoruz.
+            
             - name: BUILD_SHA
               value: "{{ .Values.image.tag | default "local-development" }}"
           
