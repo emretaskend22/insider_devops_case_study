@@ -10,7 +10,7 @@ image:
 service:
   type: NodePort
   port: 8080
-  nodePort: 30080   # 🚨 EKLENDİ: EC2 iptables yönlendirmesi için şart!
+  nodePort: 30080  
 
 resources:
   limits:
@@ -23,7 +23,7 @@ resources:
 hpa:
   enabled: true
   minReplicas: 3      
-  maxReplicas: 5      # 🚨 DÜZELTİLDİ: t3.small CPU kapasitesini aşmamak için 5 ile sınırlandırıldı
+  maxReplicas: 5      
   targetCPU: 75
 
 serviceMonitor:

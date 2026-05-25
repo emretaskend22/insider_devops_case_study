@@ -2,7 +2,11 @@
 
 Bu proje, Python (FastAPI) tabanlı bir mikroservisin sıfırdan AWS bulut altyapısına kadar uzanan tam otomatik (CI/CD), izlenebilir (Observability) ve güvenli (Security-Aware) dağıtım sürecini gösteren uçtan uca bir DevOps vaka çalışmasıdır. 
 
-Sistem, AWS Free Tier sınırları içerisinde (`t3.small`) Kubernetes (Minikube) çalıştıracak şekilde optimize edilmiş ve "Infrastructure as Code" (Terraform, Track A) ile inşa edilmiştir.
+Sistem, AWS Free Tier sınırları içerisinde (`t3.small`) Kubernetes (Minikube) çalıştıracak şekilde optimize edilmiş ve "Infrastructure as Code" (Terraform, Track A) ile inşa edilmiştir. Ve uygulama şu adres üzerinden erişilebilir durumdadır:
+
+```text
+http://35.157.173.155:30080/ping
+```
 
 ## 🏗️ Architecture Overview
 
@@ -83,18 +87,18 @@ Küme düzeyinde proaktif bir izleme (monitoring) mimarisi kurgulanmıştır:
 AWS üzerindeki tüm temel altyapı (Track A) konsol üzerinden manuel olarak değil, tekrar edilebilir ve sürümlendirilebilir bir şekilde **Terraform** kullanılarak kodla inşa edilmiştir:
 * Projenin omurgasını oluşturan EC2 (`t3.small`) sunucusu, ağa açık ve sabit erişim sağlayan Elastic IP (EIP) ve sadece belirli IP'lere (GitHub Actions Runner vb.) geçici kapı açan dinamik Security Group konfigürasyonları tamamen Terraform state'i üzerinden yönetilmektedir.
 
----
+
 
 # 🚀 INSIDER DEVOPS CASE STUDY - HOW TO RUN
 
----
+> **⚠️ Önemli:** Bu projeyi kendi AWS ve GitHub ortamınızda çalıştırmak için repoyu önce kendi hesabınıza **"Fork"** edin. GitHub Actions ve AWS entegrasyonları sizin kişisel secret ve IAM yapılandırmalarınıza ihtiyaç duyacaktır.
 
 ## 📁 Adım 1: Projeyi Klonlama
 
 Altyapı kurulumuna başlamak için projeyi bilgisayarınıza indirin ve ana dizine geçin:
 
 ```bash
-git clone [https://github.com/emretaskend22/insider_devops_case_study.git](https://github.com/emretaskend22/insider_devops_case_study.git)
+git clone https://github.com/emretaskend22/insider_devops_case_study.git
 cd insider_devops_case_study
 cd app
 
@@ -288,7 +292,6 @@ Yeni pod'lar `READY: 1/1` ve `STATUS: Running` durumuna geçtiği anda Kubernete
 
 # 📊 Adım 7: Observability ve Grafana Monitoring
 
----
 
 ### 🛠️ 1️⃣ Prometheus & Grafana Kurulumu
 
@@ -337,16 +340,7 @@ kubectl get secret \
 
 ### 📈 4️⃣ FastAPI Metrics Dashboard Import
 
-Grafana arayüzüne giriş yaptıktan sonra aşağıdaki dashboard ID'lerinden birini import ederek FastAPI uygulama metriklerini canlı izleyebilirsiniz:
-
-| Dashboard | ID |
-|---|---|
-| FastAPI Observability | `16110` |
-| FastAPI Full Observability | `25040` |
-
-Import için: **Dashboards → Import → Dashboard ID**
-
----
+Grafana arayüzüne giriş yaptıktan sonra uygun dashboard ID'lerinden birini import ederek FastAPI uygulama metriklerini canlı izleyebilirsiniz.
 
 ### 📊 5️⃣ İzlenebilen Metrikler
 
@@ -363,8 +357,8 @@ Grafana dashboard'ları üzerinden aşağıdaki metrikler canlı izlenebilir:
 ## 📚 Operasyonel Dokümantasyon
 
 Sistemin yönetimi ve alınan mimari kararlar için `docs/` klasöründeki belgelere göz atabilirsiniz:
-* [**RUNBOOK.md**](docs/RUNBOOK.md): Yeniden başlatma, geri alma (rollback) ve log inceleme prosedürleri.
-* [**SECURITY.md**](docs/SECURITY.md): Non-root kullanıcı, RBAC ve secret yönetimi stratejileri.
+* [**RUNBOOK.md**](RUNBOOK.md): Yeniden başlatma, geri alma (rollback) ve log inceleme prosedürleri.
+* [**SECURITY.md**](SECURITY.md): Non-root kullanıcı, RBAC ve secret yönetimi stratejileri.
 * [**ADR (Architecture Decision Records)**](docs/adr/): Kullanılan teknolojilerin ve altyapı seçimlerinin gerekçeleri.
 
 ---
