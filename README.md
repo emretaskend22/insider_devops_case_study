@@ -1,79 +1,63 @@
-# Insider DevOps Case Study - End-to-End Delivery Documentation
+# Insider-App: End-to-End DevOps & Observability Case Study
 
-Bu repo, Insider DevOps Case Study kapsamında geliştirilen Python tabanlı API uygulamasının, AWS bulut altyapısının (IaC), Kubernetes (Minikube) orkestrasyonunun ve izleme (Monitoring) sistemlerinin uçtan uca kurulum süreçlerini içerir.
+Bu proje, Python (FastAPI) tabanlı bir mikroservisin sıfırdan AWS bulut altyapısına kadar uzanan tam otomatik (CI/CD), izlenebilir (Observability) ve güvenli (Security-Aware) dağıtım sürecini gösteren uçtan uca bir DevOps vaka çalışmasıdır. 
 
-Projede **Maliyet Bilinci (Cost-Awareness)**, **Yüksek Erişilebilirlik (High Availability)**, **Güvenlik (Security)** ve **Otomasyon (Automation)** prensipleri ana kılavuz olarak benimsenmiştir.
+Sistem, AWS Free Tier sınırları içerisinde (`t3.small`) Kubernetes (Minikube) çalıştıracak şekilde optimize edilmiş ve "Infrastructure as Code" (Terraform, Track A) ile inşa edilmiştir.
 
----
+## 🏗️ Architecture Overview
 
-## 📈 Proje Yol Haritası (Milestones)
+![Architecture Diagram](docs/architecture_diagram.png)
 
-### 🔹 Milestone 1: Uygulama Geliştirme & Dockerization
-* Python tabanlı, hafif, asenkron ve yüksek performanslı bir API geliştirildi.
-* Uygulamanın her ortamda tutarlı çalışması için optimize edilmiş bir `Dockerfile` mimarisi kuruldu.
-
-### 🔹 Milestone 1.5: Bulut Altyapısı & IaC (Terraform)
-* AWS üzerinde tamamen kodla (IaC) güvenli bir network ve sunucu altyapısı kuruldu.
-* Hesap kısıtlamalarını aşmak ve sistemi çökmez kılmak için OS seviyesinde SWAP Memory mimarisi optimize edildi.
-
-### 🔹 Milestone 2: Kubernetes Orkestrasyonu & Helm Management
-* Uygulamanın ham manifestolar yerine, ortam bağımsız (Dev/Prod) çalışabilen dinamik bir Helm Chart mimarisiyle dağıtım altyapısı hazırlandı.
+## 🛠️ Tech Stack
+* **Application:** Python, FastAPI, Uvicorn
+* **Containerization:** Docker (Multi-stage, Non-root user)
+* **Infrastructure as Code (IaC):** Terraform
+* **Orchestration:** Kubernetes (Minikube), Helm
+* **CI/CD:** GitHub Actions (OIDC, Dynamic IP Whitelisting, Trivy)
+* **Observability:** Prometheus, Grafana, Alertmanager
 
 ---
 
 # 🚀 INSIDER DEVOPS CASE STUDY - HOW TO RUN
 
-Bu rehber, projenin GitHub'dan sıfır kopyasını çeken bir geliştiricinin, altyapıyı AWS üzerinde Terraform ile kurup, içeride Minikube ve Helm ile uygulamayı sıfırdan ayağa kaldırması için gereken tüm adımları kronolojik olarak içerir.
-
 ---
 
-## 📁 Adım 1: Uygulama Ortamının Hazırlanması
+## 📁 Adım 1: Projeyi Klonlama
 
-Repoyu bilgisayarınıza klonladıktan sonra ilk olarak uygulama klasörüne geçip gerekli çevre değişkenlerini ve bağımlılıkları kuruyoruz:
+Altyapı kurulumuna başlamak için projeyi bilgisayarınıza indirin ve ana dizine geçin:
 
 ```bash
-# 1. Uygulama klasörüne geçiş
+git clone [https://github.com/emretaskend22/insider_devops_case_study.git](https://github.com/emretaskend22/insider_devops_case_study.git)
+cd insider_devops_case_study
 cd app
 
 # 2. Port bilgisini içeren .env dosyasının oluşturulması
 echo "APP_PORT=8080" > .env
-
-# 3. Sanal ortamın kurulup bağımlılıkların yüklenmesi
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd ..
 ```
 
-## 🗺️ Adım 2: AWS Üzerinde Altyapının Kurulması (Terraform)
+## 🗺️ Adım 2: AWS Altyapısının Kurulması (Terraform)
 
-AWS üzerinde gerekli sunucu (EC2) ve network kaynaklarını (VPC, Security Group vb.) ayağa kaldırmak için Terraform kullanıyoruz.
+AWS üzerindeki sunucu (EC2), ağ ve güvenlik kaynakları (IaC) Terraform ile yönetilmektedir.
 
-### 1️⃣ `terraform.tfvars` Dosyasının Hazırlanması
-
-`terraform/` klasörüne girin ve aşağıdaki içerikle bir `terraform.tfvars` dosyası oluşturun:
+**1. Konfigürasyon:** `terraform/` dizinine geçin ve kendi değişkenlerinizi tanımlamak için bir `terraform.tfvars` dosyası oluşturun:
 
 ```hcl
 # terraform/terraform.tfvars
-
 my_ip    = "xx.xx.xx.xx"       # Kendi lokal IP adresiniz
 key_name = "your-aws-key-name" # AWS panelindeki mevcut SSH Key (.pem) adınız
+github_repo = "username/repo"     # Kendi GitHub repo yolunuz (OIDC için)
 ```
-
-- `my_ip`: Kendi internet IP adresiniz
-- `key_name`: AWS üzerinde oluşturduğunuz SSH Key Pair adı
-
 ---
 
 ### 🔑 2️⃣ SSH Anahtarının (.pem) Hazırlanması
 
-AWS panelinden indirdiğiniz `.pem` dosyasını `terraform/` klasörünün içine taşıyın.
-
-Daha sonra Linux/macOS sistemlerde güvenlik hatası almamak için dosya izinlerini kısıtlayın:
+AWS konsolundan indirdiğiniz `.pem` dosyasını `terraform/` klasörüne taşıyın, ardından izinlerini kısıtlayın:
 
 ```bash
 chmod 400 your-aws-key-name.pem
 ```
+
+> **Not:** Bu adım Linux/macOS için zorunludur; aksi hâlde SSH bağlantısı sırasında izin hatası alırsınız.
 
 ---
 
@@ -84,33 +68,18 @@ Aşağıdaki komutları sırasıyla çalıştırın:
 ```bash
 cd terraform
 
-terraform init
-terraform plan
-terraform apply -auto-approve
+terraform init       # Provider'ları ve modülleri indirir
+terraform plan       # Oluşturulacak kaynakları önizler
+terraform apply -auto-approve  # Kaynakları oluşturur
 
 cd ..
 ```
 
-Kurulum tamamlandığında Terraform size EC2 sunucusunun `public_ip` bilgisini verecektir.
+Kurulum tamamlandığında Terraform, EC2 sunucusunun `public_ip` adresini çıktı olarak gösterecektir.
 
 ---
 
 # 💻 Adım 3: AWS Sunucusuna Bağlantı & Otomatik Altyapı Kurulumu
-
-Bu projede **Separation of Concerns** prensibi uygulanmıştır.
-
-Sunucu altyapısı:
-
-- Docker
-- Minikube
-- Kubernetes
-- IPTables NAT kuralları
-- Namespace yapıları
-- SWAP ayarları
-
-tamamen Terraform tarafından tetiklenen `install_dependencies.sh` (Cloud-Init / User-Data) ile otomatik olarak kurulmaktadır.
-
----
 
 ### 🔐 1️⃣ Sunucuya SSH ile Bağlanma
 
@@ -124,9 +93,7 @@ ssh -i terraform/your-aws-key-name.pem ubuntu@<EC2_PUBLIC_IP>
 
 ### ⏳ 2️⃣ Cloud-Init Kurulum Sürecini İzleme (Opsiyonel)
 
-Sunucuya ilk girişte Kubernetes, Docker ve ağ yönlendirmeleri arka planda kuruluyor olacaktır.
-
-Kurulum loglarını canlı izlemek için:
+Sunucuya ilk girişte Kubernetes, Docker ve ağ yönlendirmeleri arka planda kurulmaya devam ediyor olabilir. Kurulum loglarını canlı izlemek için:
 
 ```bash
 tail -f /var/log/cloud-init-output.log
@@ -134,14 +101,8 @@ tail -f /var/log/cloud-init-output.log
 
 Aşağıdaki mesajı gördüğünüzde altyapı tamamen hazırdır:
 
-```bash
-=== Setup Completed Successfully! ===
 ```
-
-Çıkmak için:
-
-```bash
-CTRL + C
+=== Setup Completed Successfully! ===
 ```
 
 ---
@@ -150,7 +111,6 @@ CTRL + C
 
 ```bash
 git clone https://github.com/emretaskend22/insider_devops_case_study.git
-
 cd insider_devops_case_study
 ```
 
@@ -158,9 +118,7 @@ cd insider_devops_case_study
 
 # ☸️ Adım 4: Uygulama Dağıtımı (Helm & Automation)
 
-Altyapı bileşenleri (Docker, Kubernetes, Namespace, CRD, NAT vb.) zaten Cloud-Init ile hazırlandığı için deployment süreci tamamen stateless hale getirilmiştir.
-
-Dağıtım yalnızca uygulamaya odaklanır.
+Altyapı bileşenleri (Docker, Kubernetes, Namespace, CRD, NAT vb.) Cloud-Init tarafından hazırlandığından deployment süreci yalnızca uygulamaya odaklanır.
 
 ---
 
@@ -170,17 +128,8 @@ Deployment scriptine çalıştırma izni verin ve başlatın:
 
 ```bash
 chmod +x ./insider-app/deploy.sh
-
 ./insider-app/deploy.sh
 ```
-
-Bu script:
-
-- Docker image build eder
-- Image'ı Minikube içerisine yükler
-- Helm chart deploy eder
-- `values-dev.yaml` ayarlarını uygular
-- Uygulamayı `monitoring` namespace'ine deploy eder
 
 ---
 
@@ -192,67 +141,40 @@ Pod'un başarıyla ayağa kalktığını doğrulayın:
 kubectl get pods -n insider-app
 ```
 
-Aşağıdakine benzer bir çıktı görmelisiniz:
+Beklenen çıktı:
 
-```bash
+```
 NAME                           READY   STATUS    RESTARTS   AGE
 insider-dev-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
 ```
 
-`STATUS: Running` ve `READY: 1/1` gördüğünüzde uygulama başarıyla deploy edilmiş demektir. 🎉
+`STATUS: Running` ve `READY: 1/1` görüyorsanız uygulama başarıyla deploy edilmiştir. 🎉
 
 ---
 
 # 🌐 Adım 5: Canlı Erişim Testi
-
-Kubernetes cluster'ı EC2 üzerinde izole bir Minikube ağı içerisinde çalışmaktadır.
-
-Cloud-Init aşamasında kernel seviyesinde kalıcı `iptables NAT` kuralları tanımlandığı için:
-
-- `kubectl port-forward`
-- `minikube service`
-- `LoadBalancer`
-
-gibi geçici çözümlere ihtiyaç duyulmaz.
-
 Uygulamaya doğrudan EC2 public IP üzerinden erişebilirsiniz:
 
-```bash
+```
 http://<AWS_ELASTIC_IP>:30080/healthz
 ```
 
-Başarılı sonuç:
+Beklenen yanıt:
 
 ```json
 {"status":"healthy"}
 ```
 
-Bu çıktıyı görüyorsanız sistem tamamen canlıdır 🚀
+Bu çıktıyı görüyorsanız sistem tamamen canlıdır. 🚀
 
-# 🚀 Adım 5: Production CI/CD Pipeline (GitHub Actions)
 
-`main` branch'ine yapılan her push ve merge işleminde;
+# 🚀 Adım 6: Production CI/CD Pipeline (GitHub Actions)
 
-- Test
-- Lint
-- Secret scanning
-- Container vulnerability scanning
-- Docker image build & publish
-- AWS sunucusuna otomatik deployment
+### 🔐 1️⃣ Güvenlik ve Secret İzolasyonu (Bootstrap)
 
-işlemleri tamamen otomatik olarak gerçekleştirilir.
+Güvenlik standartları gereği GHCR token'ı SSH üzerinden cleartext olarak taşınmaz. Bunun yerine Kubernetes cluster'ına image pull yetkisi yalnızca bir kez manuel olarak tanımlanır.
 
-Pipeline, Kubernetes Rolling Update mekanizması sayesinde uygulamayı **Zero-Downtime** ile günceller.
-
----
-
-## 🔐 1️⃣ Güvenlik ve Secret İzolasyonu (Bootstrap)
-
-Güvenlik standartları gereği GHCR token'ı SSH üzerinden cleartext olarak taşınmaz.
-
-Bunun yerine Kubernetes cluster'ına image pull yetkisi yalnızca bir kez manuel olarak tanımlanır.
-
-Aşağıdaki secret, uygulamanın çalıştığı `insider-app` namespace'ine oluşturulur:
+Aşağıdaki komutu `insider-app` namespace'i için çalıştırın:
 
 ```bash
 kubectl create secret docker-registry ghcr-secret \
@@ -263,17 +185,15 @@ kubectl create secret docker-registry ghcr-secret \
   --docker-email="<YOUR_GITHUB_EMAIL>"
 ```
 
-Bu işlem sonrasında Kubernetes cluster'ı GHCR'dan private image çekebilir hale gelir.
-
-🔒 Secret cluster içinde güvenli şekilde saklandığı için CI/CD pipeline deployment sırasında hassas credential taşımaz.
+Bu işlemden sonra Kubernetes cluster'ı GHCR'dan private image çekebilir hale gelir. CI/CD pipeline'ı deployment sırasında hassas credential taşımaz; secret cluster içinde güvenli şekilde saklanır.
 
 ---
 
-## ⚙️ 2️⃣ GitHub Actions Secrets Kurulumu
+### ⚙️ 2️⃣ GitHub Actions Secrets Kurulumu
 
-Repository içerisinde aşağıdaki path'e gidin:
+Repository'de aşağıdaki sayfaya gidin:
 
-```text
+```
 Settings → Secrets and variables → Actions
 ```
 
@@ -289,57 +209,7 @@ Aşağıdaki secret'ları tanımlayın:
 
 ---
 
-## 🚀 3️⃣ Otomatik Deployment Süreci
-
-`main` branch'ine yapılan her merge/push işleminde pipeline otomatik olarak aşağıdaki aşamaları çalıştırır:
-
-### 🧪 Lint & Secret Scanning
-
-- Ruff ile Python lint kontrolü yapılır
-- GitLeaks ile secret sızıntısı taranır
-
----
-
-### 🛡️ Docker Build & Vulnerability Scanning
-
-- Docker image build edilir
-- Trivy ile `CRITICAL` ve `HIGH` severity vulnerability taraması yapılır
-- Güvenli image GHCR'a push edilir
-
----
-
-### 🔐 Dynamic IP Whitelisting
-
-GitHub Actions runner'ın anlık public IP adresi otomatik tespit edilir.
-
-Sadece deployment süresi boyunca EC2 Security Group'a geçici SSH erişimi açılır.
-
-Bu yaklaşım:
-
-- permanent SSH exposure oluşmasını engeller
-- attack surface'i minimize eder
-- zero-trust yaklaşımına daha uygundur
-
----
-
-### ☸️ Automated Kubernetes Rolling Update
-
-Pipeline EC2 sunucusuna bağlanır ve Helm deployment'ını günceller.
-
-Yeni pod'lar `insider-app` namespace'inde ayağa kalkarken eski pod'lar Kubernetes Rolling Update stratejisiyle sıfır kesintiyle kaldırılır.
-
----
-
-### 🔒 Automatic Firewall Revoke
-
-Deployment başarılı olsa da başarısız olsa da (`if: always()`):
-
-- geçici SSH erişimi otomatik kaldırılır
-- Security Group eski haline döndürülür
-
----
-
-## 📊 4️⃣ Rolling Update Sürecini İzleme
+### 📊 3️⃣ Rolling Update Sürecini İzleme
 
 Deployment sırasında pod geçişlerini canlı izlemek için:
 
@@ -347,50 +217,21 @@ Deployment sırasında pod geçişlerini canlı izlemek için:
 kubectl get pods -n insider-app -w
 ```
 
-Yeni pod'lar:
+Yeni pod'lar `READY: 1/1` ve `STATUS: Running` durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır. Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder. 🚀
 
-```text
-READY   STATUS
-1/1     Running
-```
-
-durumuna geçtiği anda Kubernetes eski pod'ları otomatik olarak kaldırır.
-
-Bu süreç boyunca uygulama kesintisiz hizmet vermeye devam eder 🚀
-
-# 📊 Adım 6: Observability ve Grafana Monitoring
-
-Uygulamanın:
-
-- performansını
-- request throughput'unu (RPS)
-- hata oranlarını
-- response latency değerlerini
-- Kubernetes cluster metriklerini
-
-canlı izlemek amacıyla sisteme tam entegre bir observability katmanı eklenmiştir.
-
-Monitoring stack aşağıdaki bileşenlerden oluşmaktadır:
-
-- Prometheus
-- Grafana
-- kube-state-metrics
-- node-exporter
-- Alerting CRD'leri
+# 📊 Adım 7: Observability ve Grafana Monitoring
 
 ---
 
-## 🛠️ 1️⃣ Prometheus & Grafana Kurulumu
+### 🛠️ 1️⃣ Prometheus & Grafana Kurulumu
 
-Namespace ve Prometheus CRD'leri Cloud-Init sırasında otomatik hazırlandığı için bu aşamada yalnızca monitoring stack deploy edilir.
+Namespace ve Prometheus CRD'leri Cloud-Init tarafından önceden hazırlandığından doğrudan monitoring stack kurulumuna geçebilirsiniz.
 
 EC2 sunucusuna SSH ile bağlandıktan sonra aşağıdaki komutları çalıştırın:
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-
 helm repo update
-
 helm upgrade --install prometheus-stack \
   prometheus-community/kube-prometheus-stack \
   --namespace monitoring
@@ -400,33 +241,25 @@ Kurulum tamamlandıktan sonra Prometheus, Grafana ve exporter servisleri `monito
 
 ---
 
-## 🌐 2️⃣ Grafana Arayüzüne Erişim
+### 🌐 2️⃣ Grafana Arayüzüne Erişim
 
-Grafana servisine erişmek için port-forward işlemi başlatın:
+Grafana servisine erişmek için port-forward başlatın:
 
 ```bash
 kubectl port-forward -n monitoring svc/prometheus-stack-grafana 30000:80 --address 0.0.0.0
 ```
 
-Daha sonra tarayıcıdan erişin:
+Ardından tarayıcıdan erişin:
 
-```text
+```
 http://<AWS_ELASTIC_IP>:30000
 ```
 
 ---
 
-## 🔑 3️⃣ Grafana Login Bilgileri
+### 🔑 3️⃣ Grafana Login Bilgileri
 
-### Kullanıcı Adı
-
-```text
-admin
-```
-
-### Şifreyi Öğrenme
-
-Grafana admin şifresini almak için:
+Kullanıcı adı `admin`'dir. Şifreyi almak için:
 
 ```bash
 kubectl get secret \
@@ -435,77 +268,37 @@ kubectl get secret \
   -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
 ```
 
----
+### 📈 4️⃣ FastAPI Metrics Dashboard Import
 
-## 📈 4️⃣ FastAPI Metrics Dashboard Import
-
-Grafana arayüzüne giriş yaptıktan sonra aşağıdaki dashboard ID'lerinden birini import ederek FastAPI uygulama metriklerini canlı izleyebilirsiniz.
-
-### Önerilen Dashboard ID'leri
+Grafana arayüzüne giriş yaptıktan sonra aşağıdaki dashboard ID'lerinden birini import ederek FastAPI uygulama metriklerini canlı izleyebilirsiniz:
 
 | Dashboard | ID |
 |---|---|
 | FastAPI Observability | `16110` |
 | FastAPI Full Observability | `25040` |
 
-Grafana üzerinden:
-
-```text
-Dashboards → Import → Dashboard ID
-```
-
-adımlarını izleyerek dashboard'u ekleyebilirsiniz.
+Import için: **Dashboards → Import → Dashboard ID**
 
 ---
 
-## 📊 5️⃣ İzlenebilen Metrikler
+### 📊 5️⃣ İzlenebilen Metrikler
 
 Grafana dashboard'ları üzerinden aşağıdaki metrikler canlı izlenebilir:
 
-- HTTP request rate (RPS)
-- Request latency
-- Error rate
-- Status code dağılımı
-- Endpoint bazlı trafik
+- HTTP request rate (RPS), latency, error rate ve status code dağılımı
+- Endpoint bazlı trafik analizi
 - CPU / Memory kullanımı
-- Kubernetes pod sağlık durumu
-- Node kaynak tüketimi
-
-Bu observability katmanı sayesinde sistem davranışı gerçek zamanlı olarak analiz edilebilir hale gelir 🚀
+- Kubernetes pod sağlık durumu ve node kaynak tüketimi
 
 
 ---
 
-## 🛠️ Detaylı Aşama Analizleri & "Neden-Niçin" Günlüğü (ADR)
+## 📚 Operasyonel Dokümantasyon
 
-### 📌 AŞAMA 1: Uygulama Geliştirme & Dockerization
+Sistemin yönetimi ve alınan mimari kararlar için `docs/` klasöründeki belgelere göz atabilirsiniz:
+* [**RUNBOOK.md**](docs/RUNBOOK.md): Yeniden başlatma, geri alma (rollback) ve log inceleme prosedürleri.
+* [**SECURITY.md**](docs/SECURITY.md): Non-root kullanıcı, RBAC ve secret yönetimi stratejileri.
+* [**ADR (Architecture Decision Records)**](docs/adr/): Kullanılan teknolojilerin ve altyapı seçimlerinin gerekçeleri.
 
-* **Uygulama Seçimi:** Projenin core (çekirdek) API katmanı için Python dilinin hafif, asenkron ve yüksek performanslı modern kütüphaneleri tercih edilmiştir. API, operasyonel yük oluşturmamak ve yatayda kusursuz ölçeklenebilmek adına **Stateless (Bağımsız/Hafızada)** bir mimariyle kurgulanmıştır.
-* **Dockerfile Stratejisi:** İmaj boyutunu minimumda tutmak, saldırı yüzeyini azaltmak (Security) ve build sürelerini optimize etmek adına `Dockerfile` içerisinde optimize edilmiş imaj taktikleri kullanılmıştır. Sadece uygulamanın çalışması için gerekli olan runtime bağımlılıkları production imajına dahil edilmiştir.
-
-### 📌 AŞAMA 1.5: Bulut Altyapısı & IaC (Terraform)
-
-#### 1. Neden `t3.small` Instance Tipi Seçildi?
-* **Problem:** Minikube/Kubernetes kontrol düzleminin (control plane) kararlı çalışabilmesi için en az 2 vCPU ve 2GB-4GB RAM gerekmektedir (`t3.medium`). Ancak kişisel/yeni AWS hesaplarındaki katı **Free Tier vCPU kota kısıtlamaları (On-Demand vCPU blocking)** nedeniyle `t3.medium` sunucu istekleri AWS API katmanında reddedilmiştir.
-* **Çözüm:** Teslimat (delivery) odağını kaybetmemek ve AWS hesap limitlerine tam uyum sağlamak adına, hesaba tanımlı ve onaylı olan en optimum model **`t3.small` (2 vCPU, 2GB RAM)** seçilmiştir.
-
-#### 2. Neden İşletim Sistemi Seviyesinde SWAP Memory Kuruldu?
-* **Problem:** `t3.small` sunucusunun sağladığı 2GB fiziksel RAM, Minikube'un ayağa kalkması için sınırda bir değerdir. İlerleyen aşamalarda sisteme eklenecek olan Uygulama Pod'ları, Prometheus ve Grafana araçları fiziksel RAM sınırını aşarak **OOMKilled (Out Of Memory)** hatalarına ve sunucunun tamamen kilitlenmesine yol açacaktı.
-* **Çözüm:** Fiziksel RAM yetersizliğini aşmak için 20GB'lık `gp3` diskin 4GB'lık kısmı **SWAP (Sanal Bellek)** alanı olarak konfigüre edilmiştir. Bu sayede sunucu toplam belleği yapay olarak 6GB seviyesine çekilmiştir. Geçici kaynak patlamalarında (burst) sistemin çökmesi engellenmiş, **Fail-Safe** ve yüksek erişilebilir bir mikro-altyapı simüle edilmiştir. (Kubernetes v1.28+ standartlarına tam uyum sağlanmıştır).
-
-#### 3. Neden Ağ Güvenliği (Security Group) Sıkılaştırıldı?
-* **Problem:** Altyapının internete açık olması, kaba kuvvet (brute-force) saldırılarına ve port tarama risklerine zemin hazırlar.
-* **Çözüm:** Güvenlik duvarında (Security Group) HTTP (80) trafiği tüm dünyaya açık bırakılırken; kritik ve hassas olan **SSH (22)** portu ile **Kubernetes NodePort (30000-32767)** aralığı, Terraform değişkenleri (`var.my_ip`) kullanılarak **sadece geliştiricinin anlık IP adresine (`/32`) kilitlenmiştir.**
-
-#### 4. Otomasyon (Configuration as Code)
-* Sunucu provizyon edildikten sonra içeride yapılan tüm operasyonel adımlar (SWAP aktivasyonu, Docker kurulumu, kullanıcı izinleri ve optimize edilmiş Minikube cluster başlangıcı) `terraform/scripts/install_dependencies.sh` dosyası altında scriptleştirilerek sistemin tekrar üretilebilir (reproducible) olması sağlanmıştır.
-
-### 📌 AŞAMA 2: Kubernetes Orkestrasyonu & Helm Management
-
-### 📊 2.1 Helm Chart Architecture (Raw Manifest vs. Helm)
-
-Projenin ölçeklenebilir ve yönetilebilir olması amacıyla Kubernetes üzerinde ham (raw) manifestolar kullanmak yerine tamamen özelleştirilmiş bir **Helm Chart** (`insider-app`) mimarisi kurulmuştur.
-
-* **Sadelik ve Stateless Yapı:** Python FastAPI uygulamamız tamamen stateless (veritabanından bağımsız) ve herhangi bir credential (şifre/token) içermediği için, güvenlik mimarisinde "best practice" olarak repoya içi boş/gereksiz bir `Secret` objesi eklenmemiştir.
-* **ConfigMap Enjeksiyonu:** Uygulamanın çalışacağı port bilgisi (`APP_PORT`) `values.yaml` üzerinden merkezi olarak yönetilmekte ve `templates/configmap.yaml` aracılığıyla pod içerisine dinamik çevre değişkeni (environment variable) olarak enjekte edilmektedir. Bu sayede yazılım koduna dokunmadan konfigürasyon esnekliği sağlanmıştır.
-* **Servis Yönetimi:** Pod'lara gelecek olan iç ve dış trafiği dengelemek adına kurumsal standartta bir `Service` şablonu kurgulanmıştır.
+---
+**Author:** Emre Taşkend
